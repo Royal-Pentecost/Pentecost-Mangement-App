@@ -1,0 +1,10 @@
+{
+  "description": "Streamlines church attendance tracking and resource access with a welcoming, organized interface featuring local assemblies, service schedules, and study guides.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

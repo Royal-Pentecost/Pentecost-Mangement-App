@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "Royal Membership App",
+    "slug": "church-attendance",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "churchattendance",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "gh.cop.churchattendance"
+    },
+    "android": {
+      "package": "gh.cop.churchattendance",
+      "adaptiveIcon": {
+        "backgroundColor": "#1E3A8A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Royal Membership uses your location only while you are marking attendance, to confirm you are inside the auditorium.",
+          "locationWhenInUsePermission": "Royal Membership uses your location only while you are marking attendance, to confirm you are inside the auditorium.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-mark-light.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/splash-mark.png",
+            "imageWidth": 200,
+            "resizeMode": "contain",
+            "backgroundColor": "#4166F5"
+          }
+        }
+      ],
+      "@maplibre/maplibre-react-native"
+    ]
+  }
+}

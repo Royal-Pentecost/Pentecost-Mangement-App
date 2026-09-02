@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --radius-card: var(--radius);
+}
+
+:root {
+  --background: #F8F9FA;
+  --foreground: #1A1D20;
+  --card: #FFFFFF;
+  --card-foreground: #1A1D20;
+  --primary: #1E3A8A;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EFF6FF;
+  --secondary-foreground: #1E3A8A;
+  --muted: #F1F3F5;
+  --muted-foreground: #6C757D;
+  --accent: #D97706;
+  --accent-foreground: #FFFFFF;
+  --border: #E2E8F0;
+  --ring: #1E3A8A;
+  --radius: 14px;
+}
+
+.dark {
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+  --card: #1E293B;
+  --card-foreground: #F8FAFC;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1E3A8A;
+  --secondary-foreground: #BFDBFE;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --accent: #F59E0B;
+  --accent-foreground: #0F172A;
+  --border: #334155;
+  --ring: #3B82F6;
+  --radius: 14px;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  min-height: 100dvh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
