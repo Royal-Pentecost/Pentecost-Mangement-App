@@ -6,6 +6,7 @@ import { LoginRole, ME, Member, memberFilters, visibleMembers } from "../data";
 import { ChevronRightIcon, SearchIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, Txt } from "../ui";
 import { FadeIn } from "../motion";
+import { useContent } from "../store";
 
 export default function MembersDirectory({
   onSelectMember,
@@ -17,11 +18,12 @@ export default function MembersDirectory({
   bottomInset: number;
 }) {
   const { c, isDark } = useTheme();
+  const { directory } = useContent();
   const [activeFilter, setActiveFilter] = useState("All Members");
   const [search, setSearch] = useState("");
 
   // A day-born leader only ever sees their own group.
-  const scoped = visibleMembers(loginRole);
+  const scoped = visibleMembers(loginRole, ME, directory);
   const groupOnly = loginRole === "member";
 
   const filtered = scoped.filter((m) => {

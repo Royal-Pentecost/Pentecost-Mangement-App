@@ -59,6 +59,7 @@ export function HeaderButton({
       style={{
         width: ms(size),
         height: ms(size),
+        flexShrink: 0,
         borderRadius: ms(size) / 2,
         alignItems: "center",
         justifyContent: "center",
@@ -81,7 +82,13 @@ export function HeaderTitle({
   align?: "left" | "center";
 }) {
   return (
-    <View style={{ flex: 1, alignItems: align === "center" ? "center" : "flex-start" }}>
+    <View
+      style={{
+        flex: 1,
+        minWidth: 0,
+        alignItems: align === "center" ? "center" : "flex-start",
+      }}
+    >
       <Txt
         variant="bodySemi"
         numberOfLines={1}
@@ -89,7 +96,21 @@ export function HeaderTitle({
       >
         {eyebrow}
       </Txt>
-      <Txt variant="displayExtraBold" numberOfLines={1} style={{ fontSize: 16.5, marginTop: 1, color: "#fff", letterSpacing: 0.2 }}>
+      <Txt
+        variant="displayExtraBold"
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
+        style={{
+          width: "100%",
+          fontSize: 16.5,
+          lineHeight: 19,
+          marginTop: 2,
+          textAlign: align,
+          color: "#fff",
+          letterSpacing: 0.2,
+        }}
+      >
         {title}
       </Txt>
     </View>

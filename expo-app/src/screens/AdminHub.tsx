@@ -1,11 +1,12 @@
 import React, { useRef, useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
 import {
   LoginRole,
+  Member,
   MILESTONE_LABELS,
   MilestoneLabel,
   members,
@@ -22,6 +23,7 @@ import {
   ChevronRightIcon,
   ChurchIcon,
   ClockIcon,
+  CorrectMemberIcon,
   CrossIcon,
   FolderIcon,
   PinIcon,
@@ -138,6 +140,20 @@ export default function AdminHub({
   const [searchQuery, setSearchQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionSearch, setCorrectionSearch] = useState("");
+  const [correctionMember, setCorrectionMember] = useState<Member | null>(null);
+  const [correctionFirstName, setCorrectionFirstName] = useState("");
+  const [correctionMiddleName, setCorrectionMiddleName] = useState("");
+  const [correctionLastName, setCorrectionLastName] = useState("");
+  const [correctionId, setCorrectionId] = useState("");
+  const [correctionPhone, setCorrectionPhone] = useState("");
+  const [correctionAssembly, setCorrectionAssembly] = useState("");
+
+  const splitMemberName = (name: string) => {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    return { first: parts[0] ?? "", middle: parts.length > 2 ? parts.slice(1, -1).join(" ") : "", last: parts.length > 1 ? parts[parts.length - 1] : "" };
+  };
 
   /** Run one file operation at a time and report the result in the banner. */
   const run = async (job: () => Promise<{ ok: boolean; message: string }>) => {
@@ -214,27 +230,67 @@ export default function AdminHub({
   const {
     directory,
     addMember,
+    updateMember,
     geofence,
     saveGeofence,
     milestoneLog,
     logMilestone,
   } = useContent();
 
+  const correctionMatches = directory.filter((member) => {
+    const query = correctionSearch.trim().toLowerCase();
+    return !query || member.name.toLowerCase().includes(query) || member.memberId.toLowerCase().includes(query) || member.phone.toLowerCase().includes(query);
+  }).slice(0, 6);
+
+  const chooseCorrectionMember = (member: Member) => {
+    setCorrectionMember(member);
+    const names = splitMemberName(member.name);
+    setCorrectionFirstName(member.firstName ?? names.first);
+    setCorrectionMiddleName(member.middleName ?? names.middle);
+    setCorrectionLastName(member.lastName ?? names.last);
+    setCorrectionId(member.memberId);
+    setCorrectionPhone(member.phone);
+    setCorrectionAssembly(member.assembly);
+  };
+
+  const saveCorrection = () => {
+    if (!correctionMember || !correctionFirstName.trim() || !correctionLastName.trim() || !correctionId.trim()) return;
+    const fullName = [correctionFirstName, correctionMiddleName, correctionLastName].map((part) => part.trim()).filter(Boolean).join(" ");
+    updateMember(correctionMember.id, {
+      name: fullName,
+      firstName: correctionFirstName.trim(),
+      middleName: correctionMiddleName.trim(),
+      lastName: correctionLastName.trim(),
+      memberId: correctionId.trim(),
+      phone: correctionPhone.trim(),
+      assembly: correctionAssembly.trim() || "Royal Assembly",
+    });
+    setStatus({ ok: true, message: `${fullName}'s member record was corrected.` });
+    setCorrectionMember(null);
+    setCorrectionSearch("");
+    setCorrectionOpen(false);
+  };
+
   // Quick add member
   const nameRef = useRef<TextInput | null>(null);
   const memberIdRef = useRef<TextInput | null>(null);
   const assemblyRef = useRef<TextInput | null>(null);
-  const [mName, setMName] = useState("");
+  const [mFirstName, setMFirstName] = useState("");
+  const [mMiddleName, setMMiddleName] = useState("");
+  const [mLastName, setMLastName] = useState("");
   const [mPhone, setMPhone] = useState("");
   const [mAssembly, setMAssembly] = useState("Royal Assembly");
   const [mId, setMId] = useState("");
 
-  const memberReady = mName.trim() !== "" && mId.trim() !== "";
+  const memberReady = mFirstName.trim() !== "" && mLastName.trim() !== "" && mId.trim() !== "";
 
   const submitMember = () => {
-    addMember({ name: mName.trim(), phone: mPhone.trim(), assembly: mAssembly.trim() || "Royal Assembly", memberId: mId.trim() });
-    setStatus({ ok: true, message: `${mName.trim()} added to the directory as ${mId.trim()}` });
-    setMName("");
+    const fullName = [mFirstName, mMiddleName, mLastName].map((part) => part.trim()).filter(Boolean).join(" ");
+    addMember({ firstName: mFirstName.trim(), middleName: mMiddleName.trim(), lastName: mLastName.trim(), phone: mPhone.trim(), assembly: mAssembly.trim() || "Royal Assembly", memberId: mId.trim() });
+    setStatus({ ok: true, message: `${fullName} added to the directory as ${mId.trim()}` });
+    setMFirstName("");
+    setMMiddleName("");
+    setMLastName("");
     setMPhone("");
     setMId("");
   };
@@ -525,6 +581,14 @@ export default function AdminHub({
             desc: "Weekly schedule, upcoming events, Bible study, and daily verse",
             onPress: onOpenPublish,
           },
+          {
+            id: "correct",
+            tint: "amber" as const,
+            Icon: CorrectMemberIcon,
+            title: "Correct Member Data",
+            desc: "Fix a member's name, ID, phone number, or assembly",
+            onPress: () => setCorrectionOpen(true),
+          },
         ].map((tool, i) => (
           <FadeIn key={tool.id} index={i}>
           <Btn onPress={tool.onPress}>
@@ -546,6 +610,57 @@ export default function AdminHub({
           </FadeIn>
         ))}
       </View>
+
+      <Modal visible={correctionOpen} transparent animationType="slide" onRequestClose={() => setCorrectionOpen(false)}>
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(7,12,24,0.62)" }}>
+          <Pressable style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} onPress={() => setCorrectionOpen(false)} />
+          <View style={{ maxHeight: "88%", padding: 18, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.card }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Txt variant="displayExtraBold" style={{ fontSize: 20, color: c.foreground }}>Correct Member Data</Txt>
+                <Txt style={{ fontSize: 12.5, lineHeight: 18, marginTop: 4, color: c.mutedForeground }}>Search for a member and update incorrect details.</Txt>
+              </View>
+              <Btn onPress={() => setCorrectionOpen(false)} style={{ padding: 8, borderRadius: 10, backgroundColor: c.muted }}>
+                <XIcon size={16} color={c.mutedForeground} />
+              </Btn>
+            </View>
+
+            <TextInput
+              value={correctionSearch}
+              onChangeText={setCorrectionSearch}
+              placeholder="Search name, member ID, or phone"
+              placeholderTextColor={c.mutedForeground}
+              style={{ marginTop: 16, paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12, backgroundColor: c.muted, color: c.foreground, fontFamily: BODY.regular, fontSize: 13 }}
+            />
+
+            {!correctionMember ? (
+              <ScrollView style={{ marginTop: 10 }} keyboardShouldPersistTaps="handled">
+                {correctionMatches.map((member) => (
+                  <Btn key={member.id} onPress={() => chooseCorrectionMember(member)} style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: c.border }}>
+                    <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>{member.name}</Txt>
+                    <Txt style={{ fontSize: 12, marginTop: 2, color: c.mutedForeground }}>{member.memberId} · {member.phone}</Txt>
+                  </Btn>
+                ))}
+              </ScrollView>
+            ) : (
+              <ScrollView style={{ marginTop: 12 }} keyboardShouldPersistTaps="handled">
+                <MiniForm title="Correct fields">
+                  <MiniField placeholder="First name" value={correctionFirstName} onChangeText={setCorrectionFirstName} />
+                  <MiniField placeholder="Middle name" value={correctionMiddleName} onChangeText={setCorrectionMiddleName} />
+                  <MiniField placeholder="Last name" value={correctionLastName} onChangeText={setCorrectionLastName} />
+                  <MiniField placeholder="Member ID" value={correctionId} onChangeText={setCorrectionId} />
+                  <MiniField placeholder="Phone number" value={correctionPhone} onChangeText={setCorrectionPhone} keyboardType="phone-pad" />
+                  <MiniField placeholder="Assigned assembly" value={correctionAssembly} onChangeText={setCorrectionAssembly} />
+                  <MiniSave label="Save correction" onPress={saveCorrection} disabled={!correctionFirstName.trim() || !correctionLastName.trim() || !correctionId.trim()} color={BRAND.gold} />
+                </MiniForm>
+                <Btn onPress={() => setCorrectionMember(null)} style={{ paddingVertical: 12, alignItems: "center" }}>
+                  <Txt variant="bodySemi" style={{ fontSize: 13, color: c.primary }}>Choose a different member</Txt>
+                </Btn>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Record categories */}
       <View style={{ paddingHorizontal: 16, gap: 12 }}>
@@ -628,12 +743,14 @@ export default function AdminHub({
 
                   {section.id === "members" ? (
                     <MiniForm title={`Quick Add Member — ${directory.length} on file`}>
-                      <MiniField placeholder="Full name" value={mName} onChangeText={setMName} inputRef={nameRef} />
+                      <MiniField placeholder="First name" value={mFirstName} onChangeText={setMFirstName} inputRef={nameRef} />
+                      <MiniField placeholder="Middle name" value={mMiddleName} onChangeText={setMMiddleName} />
+                      <MiniField placeholder="Last name" value={mLastName} onChangeText={setMLastName} />
                       <MiniField placeholder="Phone number" value={mPhone} onChangeText={setMPhone} inputRef={undefined} keyboardType="phone-pad" />
                       <MiniField placeholder="Member ID (e.g. MEM-0731)" value={mId} onChangeText={setMId} inputRef={memberIdRef} />
                       <MiniField placeholder="Assigned assembly" value={mAssembly} onChangeText={setMAssembly} inputRef={assemblyRef} />
                       <MiniSave
-                        label={memberReady ? `Add ${mName.trim().split(" ")[0]}` : "Name and member ID required"}
+                        label={memberReady ? `Add ${mFirstName.trim()}` : "First, last name and membership ID required"}
                         onPress={submitMember}
                         disabled={!memberReady}
                         color={accentColor}

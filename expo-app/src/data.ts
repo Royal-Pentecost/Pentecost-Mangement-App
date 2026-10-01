@@ -63,6 +63,10 @@ export interface Member {
   id: string;
   memberId: string;
   name: string;
+  /** Structured directory fields; legacy records may only have `name`. */
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
   assembly: string;
   assemblyId: string;
   district: string;
@@ -1322,10 +1326,10 @@ export function canViewMembers(role: LoginRole, me: Member = ME): boolean {
 }
 
 /** The members a given role is allowed to see. */
-export function visibleMembers(role: LoginRole, me: Member = ME): Member[] {
-  if (role === "admin" || role === "superAdmin") return members;
+export function visibleMembers(role: LoginRole, me: Member = ME, source: Member[] = members): Member[] {
+  if (role === "admin" || role === "superAdmin") return source;
   if (!me.dayBornLeader) return [];
-  return members.filter((m) => m.dayBorn === me.dayBorn);
+  return source.filter((m) => m.dayBorn === me.dayBorn);
 }
 
 // ─── Settings pages ───────────────────────────────────────────────────────────

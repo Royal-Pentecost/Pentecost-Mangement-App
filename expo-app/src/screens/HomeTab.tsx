@@ -6,6 +6,7 @@ import { Assembly, LoginRole, ME, canViewMembers, visibleMembers } from "../data
 import { ChevronRightIcon, FolderIcon, HomeIcon, PlayIcon, ShieldIcon, StopIcon, UsersIcon } from "../icons";
 import { Btn, Card, StatusDot, TintTile, Txt, tintFg } from "../ui";
 import { FadeIn, PopIn } from "../motion";
+import { useContent } from "../store";
 
 // ─── Admin session panel ──────────────────────────────────────────────────────
 
@@ -179,6 +180,7 @@ export default function HomeTab({
   bottomInset: number;
 }) {
   const { c, isDark } = useTheme();
+  const { directory } = useContent();
 
   return (
     <ScrollView
@@ -243,7 +245,7 @@ export default function HomeTab({
               ? [
                   {
                     label: "Church Members",
-                    sub: `${visibleMembers(loginRole).length} registered members`,
+                    sub: `${visibleMembers(loginRole, ME, directory).length} registered members`,
                     tint: "green" as TintName,
                     Icon: UsersIcon,
                     fn: onOpenMembers,

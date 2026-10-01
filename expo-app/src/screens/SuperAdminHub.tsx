@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, TextInput, View, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
-import { AdminTier, adminTierFilters, adminUsers, auditLogs, members, severityColors, tierColors } from "../data";
+import { AdminTier, Member, adminTierFilters, adminUsers, auditLogs, members, severityColors, tierColors } from "../data";
 import { exportTextFile, stampedName, toCsv } from "../files";
+import { useContent } from "../store";
 import { AlertTriangleIcon, ChevronRightIcon, ChurchIcon, LockIcon, SearchIcon, ShieldIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, Txt } from "../ui";
 
@@ -12,6 +13,8 @@ const BOUNDARIES = ["Royal Assembly", "SMT", "Upper Room", "Grace Temple", "Ayig
 
 export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) {
   const { c, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  const compactActions = width < 390;
 
   const [activeFilter, setActiveFilter] = useState("All Admins");
   const [search, setSearch] = useState("");
@@ -39,6 +42,9 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
   };
   const [grantMaster, setGrantMaster] = useState(false);
   const [revokedIds, setRevokedIds] = useState<string[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
+  const { directory, removeMember } = useContent();
 
   const filtered = adminUsers
     .filter((a) => {
@@ -53,7 +59,11 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
     })
     .filter((a) => !revokedIds.includes(a.id));
 
-  const memberMatches = members.filter((m) => m.name.toLowerCase().includes(assignName.toLowerCase()));
+  const memberMatches = directory.filter((m) => m.name.toLowerCase().includes(assignName.toLowerCase()));
+  const removableMembers = directory.filter((member) => {
+    const query = memberSearch.trim().toLowerCase();
+    return !query || member.name.toLowerCase().includes(query) || member.memberId.toLowerCase().includes(query) || member.phone.toLowerCase().includes(query);
+  }).slice(0, 8);
 
   return (
     <View style={{ flex: 1 }}>
@@ -90,13 +100,13 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
 
         {/* Admins directory */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: c.mutedForeground }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <Txt variant="bodySemi" numberOfLines={2} style={{ flex: 1, fontSize: compactActions ? 10 : 11, lineHeight: 15, letterSpacing: compactActions ? 1 : 1.4, textTransform: "uppercase", color: c.mutedForeground }}>
               Active Admins Directory
             </Txt>
-            <Btn onPress={() => setShowAssignModal(true)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: BRAND.navy }}>
-              <Txt variant="displayBold" style={{ fontSize: 12, color: "#fff" }}>
-                + Assign Admin
+            <Btn onPress={() => setShowAssignModal(true)} style={{ flexShrink: 0, paddingHorizontal: compactActions ? 10 : 12, paddingVertical: 8, borderRadius: 12, backgroundColor: BRAND.navy }}>
+              <Txt variant="displayBold" style={{ fontSize: compactActions ? 11 : 12, color: "#fff" }}>
+                {compactActions ? "+ Assign" : "+ Assign Admin"}
               </Txt>
             </Btn>
           </View>
@@ -219,6 +229,39 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
           </View>
         </View>
 
+        {/* Permanent member removal */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 24 }}>
+          <Card style={{ padding: 14 }} borderColor={isDark ? "#7F1D1D" : "#FECACA"}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <AlertTriangleIcon size={20} color={BRAND.red} />
+              <View style={{ flex: 1 }}>
+                <Txt variant="displayBold" style={{ fontSize: 15, color: c.foreground }}>Remove a member</Txt>
+                <Txt style={{ fontSize: 12, lineHeight: 17, marginTop: 3, color: c.mutedForeground }}>Permanently remove an incorrect or duplicate member record from the app.</Txt>
+              </View>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, paddingHorizontal: 11, paddingVertical: 10, borderRadius: 10, backgroundColor: c.muted }}>
+              <SearchIcon color={c.mutedForeground} />
+              <TextInput
+                value={memberSearch}
+                onChangeText={setMemberSearch}
+                placeholder="Search member name, ID, or phone"
+                placeholderTextColor={c.mutedForeground}
+                style={{ flex: 1, padding: 0, color: c.foreground, fontFamily: BODY.regular, fontSize: 13 }}
+              />
+            </View>
+            {memberSearch ? (
+              <View style={{ marginTop: 8, gap: 6 }}>
+                {removableMembers.map((member) => (
+                  <Btn key={member.id} onPress={() => setRemoveTarget(member)} style={{ padding: 10, borderRadius: 10, backgroundColor: isDark ? "#DC262622" : "#FEF2F2" }}>
+                    <Txt variant="displayBold" style={{ fontSize: 13, color: c.foreground }}>{member.name}</Txt>
+                    <Txt style={{ fontSize: 11, marginTop: 2, color: c.mutedForeground }}>{member.memberId} · {member.phone}</Txt>
+                  </Btn>
+                ))}
+              </View>
+            ) : null}
+          </Card>
+        </View>
+
         {/* Audit log */}
         <View style={{ paddingHorizontal: 16, paddingTop: 24 }}>
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
@@ -299,6 +342,34 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={!!removeTarget} transparent animationType="fade" onRequestClose={() => setRemoveTarget(null)}>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "rgba(7,12,24,0.68)" }}>
+          <Pressable style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} onPress={() => setRemoveTarget(null)} />
+          <View style={{ width: "100%", maxWidth: 360, padding: 22, borderRadius: 22, backgroundColor: c.card }}>
+            <AlertTriangleIcon size={26} color={BRAND.red} />
+            <Txt variant="displayExtraBold" style={{ fontSize: 20, marginTop: 12, color: c.foreground }}>Remove member permanently?</Txt>
+            <Txt style={{ fontSize: 13.5, lineHeight: 20, marginTop: 8, color: c.mutedForeground }}>
+              This will remove {removeTarget?.name} and their directory record from this app. This action cannot be undone.
+            </Txt>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 20 }}>
+              <Btn onPress={() => setRemoveTarget(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: c.muted }}>
+                <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>Cancel</Txt>
+              </Btn>
+              <Btn
+                onPress={() => {
+                  if (removeTarget) removeMember(removeTarget.id);
+                  setRemoveTarget(null);
+                  setMemberSearch("");
+                }}
+                style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: BRAND.red }}
+              >
+                <Txt variant="displayBold" style={{ fontSize: 14, color: "#fff" }}>Remove</Txt>
+              </Btn>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Assign new admin */}
       <Modal visible={showAssignModal} transparent animationType="slide" onRequestClose={() => setShowAssignModal(false)}>

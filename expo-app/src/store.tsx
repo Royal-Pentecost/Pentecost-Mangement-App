@@ -48,7 +48,9 @@ interface ContentState {
 
   /** Records the Admin Hub creates. The seeds come from `data.ts`. */
   directory: Member[];
-  addMember: (m: { name: string; phone: string; assembly: string; memberId: string }) => void;
+  addMember: (m: { firstName: string; middleName: string; lastName: string; phone: string; assembly: string; memberId: string }) => void;
+  updateMember: (id: string, patch: Partial<Pick<Member, "name" | "firstName" | "middleName" | "lastName" | "memberId" | "phone" | "assembly">>) => void;
+  removeMember: (id: string) => void;
 
   geofence: Geofence;
   saveGeofence: (g: Geofence) => void;
@@ -230,7 +232,8 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
    */
   const addMember = useCallback<ContentState["addMember"]>(
     (m) => {
-      const initials = m.name
+      const fullName = [m.firstName, m.middleName, m.lastName].filter(Boolean).join(" ");
+      const initials = fullName
         .split(/\s+/)
         .filter(Boolean)
         .slice(0, 2)
@@ -242,7 +245,10 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
         {
           id: nextId("m"),
           memberId: m.memberId,
-          name: m.name,
+          name: [m.firstName, m.middleName, m.lastName].filter(Boolean).join(" "),
+          firstName: m.firstName,
+          middleName: m.middleName,
+          lastName: m.lastName,
           assembly: m.assembly,
           assemblyId: "royal",
           district: "Ayigya District",
@@ -266,12 +272,27 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
 
       announce({
         kind: "admin",
-        title: `${m.name} joined the directory`,
+        title: `${[m.firstName, m.middleName, m.lastName].filter(Boolean).join(" ")} joined the directory`,
         body: `${m.memberId} · ${m.assembly}. Welcome them on Sunday.`,
       });
     },
     [announce],
   );
+
+  const updateMember = useCallback<ContentState["updateMember"]>((id, patch) => {
+    setDirectory((list) => list.map((member) => (member.id === id ? { ...member, ...patch } : member)));
+    const changed = Object.keys(patch).join(", ");
+    announce({
+      kind: "admin",
+      title: "Member record corrected",
+      body: changed ? `Updated ${changed} on the member record.` : "A member record was corrected.",
+    });
+  }, [announce]);
+
+  const removeMember = useCallback<ContentState["removeMember"]>((id) => {
+    setDirectory((list) => list.filter((member) => member.id !== id));
+    announce({ kind: "admin", title: "Member removed", body: "A member record was permanently removed from the directory." });
+  }, [announce]);
 
   const saveGeofence = useCallback((g: Geofence) => setGeofence(g), []);
 
@@ -326,6 +347,8 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       setLanguage,
       directory,
       addMember,
+      updateMember,
+      removeMember,
       geofence,
       saveGeofence,
       sessionOrigin,
@@ -360,6 +383,8 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       setLanguage,
       directory,
       addMember,
+      updateMember,
+      removeMember,
       geofence,
       saveGeofence,
       sessionOrigin,

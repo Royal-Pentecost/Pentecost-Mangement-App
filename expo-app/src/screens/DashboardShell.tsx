@@ -206,7 +206,7 @@ export default function DashboardShell(props: {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       {/* Header */}
       <HeaderBlock paddingBottom={18}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <View style={{ minHeight: 42, flexDirection: "row", alignItems: "center", gap: 8 }}>
           {atMemberRoot ? (
             // Members land here directly, so there is nowhere to go back to —
             // the logo keeps the header balanced without a dead control.
