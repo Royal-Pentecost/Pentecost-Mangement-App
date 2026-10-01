@@ -78,7 +78,7 @@ export default function SettingsDetailScreen({
 
       <View style={{ marginTop: 20, padding: 12, borderRadius: RADIUS.md, backgroundColor: c.muted }}>
         <Txt variant="bodyMedium" style={{ fontSize: 12, lineHeight: 18, color: c.mutedForeground }}>
-          Need something else? Speak to your presiding elder or the assembly office.
+          Need something else? Speak to an Admin or the assembly office.
         </Txt>
       </View>
     </ScrollView>

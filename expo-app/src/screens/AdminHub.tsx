@@ -522,7 +522,7 @@ export default function AdminHub({
             tint: "green" as const,
             Icon: UploadIcon,
             title: "Publish Content",
-            desc: "Weekly schedule, upcoming events, and the Bible study guide",
+            desc: "Weekly schedule, upcoming events, Bible study, and daily verse",
             onPress: onOpenPublish,
           },
         ].map((tool, i) => (

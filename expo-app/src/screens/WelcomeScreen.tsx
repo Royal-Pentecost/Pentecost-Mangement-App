@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RADIUS, useTheme } from "../theme";
 import { SessionUser, pentecostLogo, welcomeBackground } from "../data";
 import { Avatar, Txt, shadow } from "../ui";
-import { WaveIcon } from "../icons";
 
 /**
  * Drop the honorific and greet by given name — but when that leaves only an
@@ -127,7 +126,7 @@ export default function WelcomeScreen({ user, onDone }: { user: SessionUser; onD
           <Txt variant="displayExtraBold" style={{ fontSize: 34, color: "#fff", textAlign: "center" }}>
             {greetingName}
           </Txt>
-          <WaveIcon size={26} color="#FBBF24" />
+          <Txt style={{ fontSize: 26, lineHeight: 32 }}>👋</Txt>
         </View>
 
         <Txt variant="bodyMedium" style={{ fontSize: 14, marginTop: 8, color: "rgba(255,255,255,0.7)", textAlign: "center" }}>

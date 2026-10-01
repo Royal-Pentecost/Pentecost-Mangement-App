@@ -124,7 +124,7 @@ export interface Assembly {
 // ─── Auth (simulated backend) ─────────────────────────────────────────────────
 
 export const PHONE_ROLES: Record<string, LoginRole> = {
-  "0241010001": "superAdmin",
+  "0537096725": "superAdmin",
   "0240010002": "admin",
   "0240010003": "admin",
 };
@@ -141,7 +141,7 @@ export const elders: Elder[] = [
     office: "Elder",
     assembly: "Royal Assembly",
     assemblyId: "royal",
-    since: "2018",
+    since: "2025",
     photo:
       "https://images.unsplash.com/photo-1614023342667-6f060e9d1e04?w=300&h=300&fit=crop&auto=format",
     phone: "+233 24 000 1111",
@@ -614,7 +614,7 @@ export const adminUsers: AdminUser[] = [
     id: "a1",
     name: "Apostle K. Asante",
     // Must match the super-admin key in PHONE_ROLES so the session resolves to them.
-    phone: "+233 24 101 0001",
+    phone: "+233 53 709 6725",
     assembly: "Ayigya District",
     district: "Ayigya District",
     tier: "Super Admin",
@@ -899,8 +899,16 @@ export interface AppNotification {
   title: string;
   body: string;
   time: string;
-  kind: "attendance" | "event" | "study" | "admin";
+  kind: "attendance" | "event" | "study" | "verse" | "admin";
   unread: boolean;
+}
+
+export interface DailyVerse {
+  id: string;
+  reference: string;
+  english: string;
+  twi: string;
+  publishedOn: string;
 }
 
 export const notifications: AppNotification[] = [
@@ -1376,17 +1384,17 @@ export const settingsPages: Record<SettingsTopic, SettingsPage> = {
       { heading: "I changed my phone", body: "Sign in with the same number on the new device. An administrator can move your number if it has changed." },
     ],
     contact: [
-      { label: "Assembly office", value: "+233 24 000 1111", emoji: "phone" },
+      { label: "Assembly office", value: "+233 53 709 6725", emoji: "phone" },
       { label: "Email", value: "royal.ayigya@cop.gh", emoji: "mail" },
       { label: "Office hours", value: "Tue & Thu, 10:00 AM – 2:00 PM", emoji: "clock" },
     ],
   },
   about: {
     title: "About the App",
-    intro: "An attendance and membership companion for The Church of Pentecost, Ayigya District.",
+    intro: "An attendance and membership companion for The Church of Pentecost, Royal Assembly.",
     sections: [
       { heading: "What it does", body: "Marks service attendance using a geofence, keeps your membership record and milestones, and carries the weekly Bible study guide." },
-      { heading: "Built for", body: "Royal Assembly and the other local assemblies of the Ayigya District." },
+      { heading: "Built for", body: " The Church Of Pentecost-Royal Assembly ." },
       { heading: "Version", body: "1.0.0 — Expo SDK 57." },
     ],
   },
@@ -1395,7 +1403,7 @@ export const settingsPages: Record<SettingsTopic, SettingsPage> = {
     intro: "By using this app you agree to the terms below.",
     sections: [
       { heading: "Acceptable use", body: "The app is for members of The Church of Pentecost. Do not share your sign-in number or mark attendance on another member's behalf." },
-      { heading: "Accuracy of records", body: "Attendance and financial records are maintained by the assembly. Report discrepancies promptly so they can be corrected." },
+      { heading: "Accuracy of records", body: "Attendance are maintained by the assembly. Report discrepancies promptly so they can be corrected." },
       { heading: "Data protection", body: "Personal data is processed for church administration only and is not sold or shared with third parties." },
       { heading: "Changes", body: "These terms may be updated. Continued use after a change means you accept the revised terms." },
     ],

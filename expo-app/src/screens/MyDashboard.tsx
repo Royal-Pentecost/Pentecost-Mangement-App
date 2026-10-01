@@ -48,6 +48,10 @@ import { Collapsible, FadeIn, PopIn, useCountUp } from "../motion";
 
 const CARD_GAP = 12;
 
+// Dashboard screens can unmount when a member changes tabs. Keep the dismissal
+// at module scope so returning to the dashboard does not reopen the same verse.
+let dismissedDailyVerseId: string | null = null;
+
 /**
  * Assembly-life carousel. Draws from `homeSlides`, a deliberately different set
  * of photographs from the login screen's backdrop.
@@ -500,7 +504,7 @@ export default function MyDashboard({
 }) {
   const { c, isDark } = useTheme();
   // Live content — whatever an admin has published in the Admin Hub.
-  const { schedule: weeklySchedule, events, studies: bibleStudies, language } = useContent();
+  const { schedule: weeklySchedule, events, studies: bibleStudies, language, dailyVerse } = useContent();
   // Which study the app is on — the pamphlet week containing today.
   const thisWeek = studyForWeek(bibleStudies);
   const [reading, setReading] = useState<BibleStudy | null>(null);
@@ -518,6 +522,17 @@ export default function MyDashboard({
     setSavingPdf(null);
   };
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [versePopupOpen, setVersePopupOpen] = useState(false);
+
+  useEffect(() => {
+    if (!dailyVerse || dismissedDailyVerseId === dailyVerse.id) return;
+    setVersePopupOpen(true);
+  }, [dailyVerse?.id]);
+
+  const dismissVersePopup = () => {
+    if (dailyVerse) dismissedDailyVerseId = dailyVerse.id;
+    setVersePopupOpen(false);
+  };
 
   // Headline figures tick up rather than snapping into place.
   const attendanceCount = useCountUp(ME.attendancePct);
@@ -538,6 +553,23 @@ export default function MyDashboard({
       showsVerticalScrollIndicator={false}
     >
       {/* Personal welcome */}
+      {dailyVerse ? (
+        <Card style={{ marginBottom: 14, padding: 14, borderLeftWidth: 4, borderLeftColor: BRAND.green }}>
+          <Txt variant="bodySemi" style={{ fontSize: 10.5, letterSpacing: 1.3, textTransform: "uppercase", color: isDark ? BRAND.greenLight : BRAND.greenDark }}>
+            Verse of the day
+          </Txt>
+          <Txt variant="bodySemi" style={{ fontSize: 12, marginTop: 7, color: c.mutedForeground }}>
+            {dailyVerse.reference}
+          </Txt>
+          <Txt variant="displayBold" style={{ fontSize: 14, lineHeight: 20, marginTop: 7, color: c.foreground }}>
+            English: {dailyVerse.english}
+          </Txt>
+          <Txt style={{ fontSize: 14, lineHeight: 20, marginTop: 6, color: c.mutedForeground }}>
+            Twi: {dailyVerse.twi}
+          </Txt>
+        </Card>
+      ) : null}
+
       <LinearGradient
         colors={isDark ? ["#1B2C6B", "#0F1B44"] : ["#22357F", "#1B2C6B"]}
         start={{ x: 0, y: 0 }}
@@ -624,7 +656,13 @@ export default function MyDashboard({
             <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: "#94A3B8" }} />
           )}
           <Txt variant="bodyMedium" style={{ flex: 1, fontSize: 12.5, color: c.mutedForeground }}>
-            {sessionActive ? "Session is open at your assembly" : "No attendance session is open right now"}
+            {!sessionActive
+              ? "No attendance session is open right now"
+              : scenario === "inside-active"
+                ? "You are inside the geofence and ready to mark attendance"
+                : scenario === "outside-active"
+                  ? "Attendance is open, but you are outside the geofence"
+                  : "Session is open at your assembly"}
           </Txt>
         </View>
 
@@ -1048,6 +1086,37 @@ export default function MyDashboard({
       </View>
 
       <StudyReader study={reading} onClose={() => setReading(null)} />
+
+      <Modal visible={versePopupOpen && !!dailyVerse} transparent animationType="fade" onRequestClose={dismissVersePopup}>
+        <View style={{ flex: 1, backgroundColor: "rgba(7,12,24,0.62)", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <Card style={{ width: "100%", maxWidth: 360, padding: 22, borderRadius: RADIUS.xl }}>
+            <TintTile tint="green" size={52} radius={26}>
+              <BookIcon size={24} color={tintFg("green", isDark)} />
+            </TintTile>
+            <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", marginTop: 16, color: isDark ? BRAND.greenLight : BRAND.greenDark }}>
+              Morning verse
+            </Txt>
+            <Txt variant="displayExtraBold" style={{ fontSize: 22, lineHeight: 28, marginTop: 7, color: c.foreground }}>
+              {dailyVerse?.reference}
+            </Txt>
+            <Txt variant="bodySemi" style={{ fontSize: 12, marginTop: 12, color: c.mutedForeground }}>
+              English
+            </Txt>
+            <Txt style={{ fontSize: 15, lineHeight: 23, marginTop: 4, color: c.foreground }}>
+              {dailyVerse?.english}
+            </Txt>
+            <Txt variant="bodySemi" style={{ fontSize: 12, marginTop: 12, color: c.mutedForeground }}>
+              Twi
+            </Txt>
+            <Txt style={{ fontSize: 15, lineHeight: 23, marginTop: 4, color: c.foreground }}>
+              {dailyVerse?.twi}
+            </Txt>
+            <Btn onPress={dismissVersePopup} style={{ marginTop: 20, paddingVertical: 13, borderRadius: RADIUS.md, alignItems: "center", backgroundColor: BRAND.navy }}>
+              <Txt variant="displayBold" style={{ fontSize: 14, color: "#fff" }}>Continue to dashboard</Txt>
+            </Btn>
+          </Card>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

@@ -24,12 +24,13 @@ import {
 import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
 import { CoverPicker, Field, SubmitButton } from "../components/AdminForm";
 
-type Section = "schedule" | "events" | "study";
+type Section = "schedule" | "events" | "study" | "verse";
 
 const SECTIONS: { id: Section; label: string; tint: TintName }[] = [
   { id: "schedule", label: "Schedule", tint: "blue" },
   { id: "events", label: "Events", tint: "amber" },
   { id: "study", label: "Bible Study", tint: "violet" },
+  { id: "verse", label: "Daily Verse", tint: "green" },
 ];
 
 /** One language column of the study form, before it becomes a `StudyText`. */
@@ -89,7 +90,7 @@ function PublishedRow({
   title: string;
   subtitle: string;
   meta?: string;
-  onRemove: () => void;
+  onRemove?: () => void;
   trailing?: React.ReactNode;
   cover?: string;
 }) {
@@ -124,12 +125,14 @@ function PublishedRow({
 
       {trailing}
 
-      <Btn
-        onPress={onRemove}
-        style={{ padding: 8, borderRadius: RADIUS.sm, backgroundColor: c.muted }}
-      >
-        <TrashIcon size={15} color={c.mutedForeground} />
-      </Btn>
+      {onRemove ? (
+        <Btn
+          onPress={onRemove}
+          style={{ padding: 8, borderRadius: RADIUS.sm, backgroundColor: c.muted }}
+        >
+          <TrashIcon size={15} color={c.mutedForeground} />
+        </Btn>
+      ) : null}
     </Card>
   );
 }
@@ -152,6 +155,9 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     addStudy,
     removeStudy,
     toggleStudy,
+    dailyVerse,
+    publishDailyVerse,
+    removeDailyVerse,
   } = useContent();
 
   const [section, setSection] = useState<Section>("schedule");
@@ -177,6 +183,9 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
   const [bPages, setBPages] = useState("");
   const [bCover, setBCover] = useState<string | undefined>();
   const [studyLang, setStudyLang] = useState<Lang>("en");
+  const [vEnglish, setVEnglish] = useState("");
+  const [vTwi, setVTwi] = useState("");
+  const [vReference, setVReference] = useState("");
 
   const [en, setEn] = useState(emptyStudyForm());
   const [tw, setTw] = useState(emptyStudyForm());
@@ -237,9 +246,18 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     flash(bCover ? "Study released — the photo is now in the dashboard slider" : "Bible study released to every member's dashboard");
   };
 
+  const saveVerse = () => {
+    publishDailyVerse({ english: vEnglish.trim(), twi: vTwi.trim(), reference: vReference.trim() });
+    setVEnglish("");
+    setVTwi("");
+    setVReference("");
+    flash("Daily verse published — members will see it in their morning popup");
+  };
+
   const scheduleReady = sDay.trim() !== "" && sName.trim() !== "" && sTime.trim() !== "";
   const eventReady = eDate.trim() !== "" && eName.trim() !== "";
   const studyReady = bDate.trim() !== "" && en.title.trim() !== "" && en.chapter.trim() !== "";
+  const verseReady = vEnglish.trim() !== "" && vTwi.trim() !== "" && vReference.trim() !== "";
 
   return (
     <ScrollView
@@ -279,33 +297,48 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
       {/* Section switcher */}
       <View
         style={{
-          flexDirection: "row",
-          padding: 2,
           marginTop: 16,
-          borderRadius: RADIUS.md,
+          padding: 4,
+          borderRadius: RADIUS.lg,
           backgroundColor: c.muted,
-          alignItems: "center",
         }}
       >
-        {SECTIONS.map((s) => {
-          const active = section === s.id;
-          return (
-            <Btn
-              key={s.id}
-              onPress={() => setSection(s.id)}
-              scale={1}
-              style={[
-                { flex: 1, paddingVertical: 10, borderRadius: RADIUS.sm, alignItems: "center" },
-                active ? { backgroundColor: c.card } : null,
-                active && !isDark ? shadow("sm") : null,
-              ]}
-            >
-              <Txt variant="bodySemi" style={{ fontSize: 12.5, color: active ? c.primary : c.mutedForeground }}>
-                {s.label}
-              </Txt>
-            </Btn>
-          );
-        })}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 4 }}
+        >
+          {SECTIONS.map((s) => {
+            const active = section === s.id;
+            return (
+              <Btn
+                key={s.id}
+                onPress={() => setSection(s.id)}
+                scale={1}
+                style={[
+                  {
+                    minWidth: 112,
+                    paddingHorizontal: 14,
+                    paddingVertical: 11,
+                    borderRadius: RADIUS.md,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                  active ? { backgroundColor: c.card } : null,
+                  active && !isDark ? shadow("sm") : null,
+                ]}
+              >
+                <Txt
+                  variant="bodySemi"
+                  numberOfLines={1}
+                  style={{ fontSize: 12.5, color: active ? c.primary : c.mutedForeground }}
+                >
+                  {s.label}
+                </Txt>
+              </Btn>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* ── Weekly schedule ───────────────────────────────────────────────── */}
@@ -522,6 +555,38 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
               />
             ))}
           </View>
+        </>
+      ) : null}
+
+      {section === "verse" ? (
+        <>
+          <SectionHeading label="Set today's verse" />
+          <Card style={{ padding: 14, gap: 12 }}>
+            <Txt style={{ fontSize: 12.5, lineHeight: 18, color: c.mutedForeground }}>
+              Publish one verse for the congregation. It opens as a morning message on each member's dashboard and stays visible there for the day.
+            </Txt>
+            <Field label="Bible reference" value={vReference} onChangeText={setVReference} placeholder="John 3:16" />
+            <Field label="English verse" value={vEnglish} onChangeText={setVEnglish} placeholder="For God so loved the world..." multiline />
+            <Field label="Twi verse" value={vTwi} onChangeText={setVTwi} placeholder="Na Onyankopon dɔ wiase no saa..." multiline />
+            <SubmitButton label="Publish daily verse" onPress={saveVerse} disabled={!verseReady} Icon={BookIcon} />
+          </Card>
+
+          {dailyVerse ? (
+            <>
+              <SectionHeading label="Current daily verse" />
+              <PublishedRow
+                tint="green"
+                Icon={BookIcon}
+                title={dailyVerse.reference}
+                subtitle={`${dailyVerse.english} · ${dailyVerse.twi}`}
+                meta={`Published ${dailyVerse.publishedOn}`}
+                onRemove={() => {
+                  removeDailyVerse();
+                  flash("Daily verse deleted");
+                }}
+              />
+            </>
+          ) : null}
         </>
       ) : null}
     </ScrollView>

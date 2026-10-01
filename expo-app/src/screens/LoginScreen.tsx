@@ -13,7 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BODY, BRAND, FONT, RADIUS, useTheme } from "../theme";
-import { OTP_CODE, pentecostLogo, sliderPhotos } from "../data";
+import { OTP_CODE, SettingsTopic, pentecostLogo, settingsPages, sliderPhotos } from "../data";
 import { ArrowLeftIcon, CheckCircleIcon, ChevronDownIcon, CrownIcon, MoonIcon, ShieldIcon, SunIcon, UserIcon, XCircleIcon } from "../icons";
 import { Btn, Card, Txt, shadow } from "../ui";
 import BackgroundSlider from "../components/BackgroundSlider";
@@ -47,6 +47,7 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string) => vo
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState("");
   const [showCountry, setShowCountry] = useState(false);
+  const [policy, setPolicy] = useState<SettingsTopic | null>(null);
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
 
   const fullPhone = `${selectedCountry.code} ${phone}`;
@@ -55,7 +56,7 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string) => vo
   const hints = [
     { label: "Member", phone: "20 123 4567", color: isDark ? BRAND.blue : BRAND.navy, bg: isDark ? "#1E3A8A22" : "#EFF6FF" },
     { label: "Admin", phone: "24 001 0002", color: isDark ? BRAND.greenLight : "#166534", bg: isDark ? "#16A34A22" : "#DCFCE7" },
-    { label: "Super Admin", phone: "24 101 0001", color: BRAND.red, bg: isDark ? "#DC262622" : "#FEE2E2" },
+    { label: "Super Admin", phone: "53 709 6725", color: BRAND.red, bg: isDark ? "#DC262622" : "#FEE2E2" },
   ];
 
   return (
@@ -180,12 +181,18 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string) => vo
           </View>
 
           {/* Footer */}
-          <Txt style={{ fontSize: 12, textAlign: "center", marginTop: 24, lineHeight: 18, color: "rgba(255,255,255,0.6)" }}>
-            By continuing you agree to our{" "}
-            <Txt style={{ fontSize: 12, color: "#FBBF24" }}>Terms of Service</Txt>
-            {" "}and{" "}
-            <Txt style={{ fontSize: 12, color: "#FBBF24" }}>Privacy Policy</Txt>
-          </Txt>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", marginTop: 24 }}>
+            <Txt style={{ fontSize: 12, lineHeight: 18, color: "rgba(255,255,255,0.6)" }}>
+              By continuing you agree to our{" "}
+            </Txt>
+            <Btn onPress={() => setPolicy("terms")} scale={1}>
+              <Txt style={{ fontSize: 12, lineHeight: 18, color: "#FBBF24" }}>Terms of Service</Txt>
+            </Btn>
+            <Txt style={{ fontSize: 12, lineHeight: 18, color: "rgba(255,255,255,0.6)" }}> and </Txt>
+            <Btn onPress={() => setPolicy("privacy")} scale={1}>
+              <Txt style={{ fontSize: 12, lineHeight: 18, color: "#FBBF24" }}>Privacy Policy</Txt>
+            </Btn>
+          </View>
 
           <Txt style={{ fontSize: 11, textAlign: "center", marginTop: 8, color: "rgba(255,255,255,0.5)" }}>
             The Church of Pentecost · Royal Assembly
@@ -225,7 +232,44 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string) => vo
           </View>
         </Pressable>
       </Modal>
+
+      <PolicyModal topic={policy} onClose={() => setPolicy(null)} />
     </KeyboardAvoidingView>
+  );
+}
+
+function PolicyModal({ topic, onClose }: { topic: SettingsTopic | null; onClose: () => void }) {
+  const { c } = useTheme();
+  const insets = useSafeAreaInsets();
+  const page = topic ? settingsPages[topic] : null;
+
+  return (
+    <Modal visible={!!page} animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.background }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.border }}>
+          <Btn onPress={onClose} style={{ width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: c.muted }}>
+            <ArrowLeftIcon color={c.foreground} />
+          </Btn>
+          <Txt variant="displayBold" style={{ flex: 1, fontSize: 18, color: c.foreground }}>
+            {page?.title}
+          </Txt>
+        </View>
+
+        {page ? (
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
+            <Txt style={{ fontSize: 14, lineHeight: 22, color: c.mutedForeground }}>{page.intro}</Txt>
+            <View style={{ gap: 10, marginTop: 18 }}>
+              {page.sections.map((section, index) => (
+                <Card key={index} style={{ padding: 14 }}>
+                  <Txt variant="displayBold" style={{ fontSize: 15, color: c.foreground }}>{section.heading}</Txt>
+                  <Txt style={{ fontSize: 13.5, lineHeight: 21, marginTop: 6, color: c.mutedForeground }}>{section.body}</Txt>
+                </Card>
+              ))}
+            </View>
+          </ScrollView>
+        ) : null}
+      </View>
+    </Modal>
   );
 }
 
@@ -424,7 +468,7 @@ export function OtpScreen({
             {[
               { phone: "20 123 4567", label: "Standard Member", Icon: UserIcon, color: "#93C5FD" },
               { phone: "24 001 0002 / 0003", label: "Assembly Admin", Icon: ShieldIcon, color: "#86EFAC" },
-              { phone: "24 101 0001", label: "Super Admin", Icon: CrownIcon, color: "#FCA5A5" },
+              { phone: "53 709 6725", label: "Super Admin", Icon: CrownIcon, color: "#FCA5A5" },
             ].map((r, i) => (
               <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <r.Icon size={14} color={r.color} />

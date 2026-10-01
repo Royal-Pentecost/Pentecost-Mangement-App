@@ -1,5 +1,5 @@
-import React from "react";
-import { Image, ScrollView, View } from "react-native";
+import React, { useState } from "react";
+import { Image, Modal, Pressable, ScrollView, View } from "react-native";
 
 import { BRAND, RADIUS, TintName, useTheme } from "../theme";
 import { Assembly, LoginRole, ME, canViewMembers, visibleMembers } from "../data";
@@ -10,6 +10,7 @@ import { FadeIn, PopIn } from "../motion";
 // ─── Admin session panel ──────────────────────────────────────────────────────
 
 function AdminPanel({
+  assembly,
   sessionActive,
   sessionStartTime,
   membersPresent,
@@ -18,6 +19,7 @@ function AdminPanel({
   onTerminate,
   onOpenAdminHub,
 }: {
+  assembly: Assembly;
   sessionActive: boolean;
   sessionStartTime: string | null;
   membersPresent: number;
@@ -27,6 +29,7 @@ function AdminPanel({
   onOpenAdminHub: () => void;
 }) {
   const { c, isDark } = useTheme();
+  const [confirmingActivation, setConfirmingActivation] = useState(false);
 
   return (
     <Card style={{ padding: 14, gap: 14 }} borderColor={isDark ? BRAND.blue : "#DBE3F7"}>
@@ -65,7 +68,7 @@ function AdminPanel({
       </View>
 
       <Btn
-        onPress={sessionActive ? onTerminate : onActivate}
+        onPress={sessionActive ? onTerminate : () => setConfirmingActivation(true)}
         style={{
           paddingVertical: 15,
           borderRadius: RADIUS.md,
@@ -81,6 +84,45 @@ function AdminPanel({
           {sessionActive ? "Terminate Attendance Session" : "Activate Attendance Session"}
         </Txt>
       </Btn>
+
+      <Modal
+        visible={confirmingActivation}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmingActivation(false)}
+      >
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "rgba(7,12,24,0.62)" }}>
+          <Pressable
+            style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
+            onPress={() => setConfirmingActivation(false)}
+          />
+          <View style={{ width: "100%", maxWidth: 360, padding: 22, borderRadius: RADIUS.xl, backgroundColor: c.card }}>
+            <Txt variant="displayExtraBold" style={{ fontSize: 20, color: c.foreground }}>
+              Activate attendance?
+            </Txt>
+            <Txt style={{ fontSize: 14, lineHeight: 21, marginTop: 8, color: c.mutedForeground }}>
+              This will open attendance for members at {assembly.name}. Are you sure you want to continue?
+            </Txt>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 20 }}>
+              <Btn
+                onPress={() => setConfirmingActivation(false)}
+                style={{ flex: 1, paddingVertical: 13, borderRadius: RADIUS.md, alignItems: "center", backgroundColor: c.muted }}
+              >
+                <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>Cancel</Txt>
+              </Btn>
+              <Btn
+                onPress={() => {
+                  setConfirmingActivation(false);
+                  onActivate();
+                }}
+                style={{ flex: 1, paddingVertical: 13, borderRadius: RADIUS.md, alignItems: "center", backgroundColor: "#16A34A" }}
+              >
+                <Txt variant="displayBold" style={{ fontSize: 14, color: "#fff" }}>Activate</Txt>
+              </Btn>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Btn
         onPress={onOpenAdminHub}
@@ -234,6 +276,7 @@ export default function HomeTab({
         {isAdmin ? (
           <View style={{ marginTop: 12 }}>
             <AdminPanel
+              assembly={assembly}
               sessionActive={sessionActive}
               sessionStartTime={sessionStartTime}
               membersPresent={membersPresent}

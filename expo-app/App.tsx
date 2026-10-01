@@ -92,9 +92,16 @@ function ChurchApp() {
   const [sessionActive, setSessionActive] = useState(false);
   // Where the member actually is. `certainty` guards against a fix too coarse
   // to place them on one side of the boundary or the other.
-  const { inside: userInside, certainty, fix: adminFix } = useLocation();
+  const { inside: userInside, certainty, fix: adminFix, startWatching } = useLocation();
   const adminCertainty = certainty;
   const { geofence, openSessionAt, closeSession } = useContent();
+
+  // Keep the dashboard's geofence status current even when the Attendance tab
+  // has not been opened yet. The watcher is reference-counted with the map.
+  useEffect(() => {
+    if (appPhase !== "app") return;
+    return startWatching();
+  }, [appPhase, startWatching]);
   const locationTrusted = userInside && certainty !== "poor";
   const [attendanceMarked, setAttendanceMarked] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);

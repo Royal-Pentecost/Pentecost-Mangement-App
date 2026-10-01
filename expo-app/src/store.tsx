@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 import {
   AppNotification,
   BibleStudy,
+  DailyVerse,
   Geofence,
   Lang,
   Member,
@@ -36,6 +37,9 @@ interface ContentState {
   studies: BibleStudy[];
   manualAttendance: ManualAttendanceRecord[];
   notifications: AppNotification[];
+  dailyVerse: DailyVerse | null;
+  publishDailyVerse: (input: { english: string; twi: string; reference: string }) => void;
+  removeDailyVerse: () => void;
   /** The dashboard carousel: the seeded photographs plus every cover an admin has attached. */
   slides: Slide[];
   /** The language members read the study guide in. */
@@ -111,6 +115,7 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   const [studies, setStudies] = useState<BibleStudy[]>(seedStudies);
   const [manualAttendance, setManualAttendance] = useState<ManualAttendanceRecord[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>(seedNotifications);
+  const [dailyVerse, setDailyVerse] = useState<DailyVerse | null>(null);
   const [language, setLanguage] = useState<Lang>("en");
   const [directory, setDirectory] = useState<Member[]>(seedMembers);
   const [geofence, setGeofence] = useState<Geofence>(defaultGeofence);
@@ -170,6 +175,22 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
     },
     [announce],
   );
+
+  const publishDailyVerse = useCallback<ContentState["publishDailyVerse"]>((input) => {
+    const publishedOn = new Date().toISOString().slice(0, 10);
+    const verse = { ...input, id: nextId("verse"), publishedOn };
+    setDailyVerse(verse);
+    announce({
+      kind: "verse",
+      title: "Today's verse is here",
+      body: `${verse.reference} — ${verse.english}`,
+    });
+  }, [announce]);
+
+  const removeDailyVerse = useCallback(() => {
+    setDailyVerse(null);
+    setNotifications((list) => list.filter((item) => item.kind !== "verse"));
+  }, []);
 
   const removeStudy = useCallback((id: string) => {
     setStudies((list) => list.filter((s) => s.id !== id));
@@ -297,6 +318,9 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       studies,
       manualAttendance,
       notifications,
+      dailyVerse,
+      publishDailyVerse,
+      removeDailyVerse,
       slides,
       language,
       setLanguage,
@@ -328,6 +352,9 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       studies,
       manualAttendance,
       notifications,
+      dailyVerse,
+      publishDailyVerse,
+      removeDailyVerse,
       slides,
       language,
       setLanguage,

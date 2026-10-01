@@ -15,6 +15,7 @@ const KIND_STYLE: Record<
   attendance: { tint: "green", Icon: PinIcon },
   event: { tint: "amber", Icon: CalendarIcon },
   study: { tint: "violet", Icon: BookIcon },
+  verse: { tint: "green", Icon: BookIcon },
   admin: { tint: "indigo", Icon: ShieldIcon },
 };
 
