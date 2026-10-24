@@ -81,6 +81,8 @@ export interface ApiMember {
   residence?: string;
   /** Ministries and departments: ["Royal Youth Choir", "Royal Drama Troupe"]. Admin-set. */
   church_roles?: string[];
+  /** "single" | "married" | "widowed" | "divorced", or "" when not recorded. */
+  marital_status?: string;
   /**
    * The member's login, `0XXXXXXXXX`, or `""` when they have none — which is
    * most of the roll. Stored on the User rather than the member, but read and

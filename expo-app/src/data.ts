@@ -84,6 +84,8 @@ export interface Member {
   departments: string[];
   /** Where they live — "Ayigya Zongo", "KNUST". */
   residence?: string;
+  /** "Married", "Single", "Widowed", "Divorced" — blank when not recorded. */
+  maritalStatus?: string;
   attendancePct: number;
   /** Consecutive Sunday services attended. */
   streak: number;

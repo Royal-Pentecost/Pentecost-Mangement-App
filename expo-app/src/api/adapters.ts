@@ -124,6 +124,7 @@ export function toMember(m: ApiMember): Member {
     // The ministries and departments from the church's roll.
     departments: m.church_roles ?? [],
     residence: m.residence ?? "",
+    maritalStatus: m.marital_status ? m.marital_status[0].toUpperCase() + m.marital_status.slice(1) : "",
     // Filled in by `withStats` once the figures have been fetched. Zero here is
     // honest: the app has not been told the score yet.
     attendancePct: 0,

@@ -252,6 +252,7 @@ export default function MemberProfile({
               },
               ...(accessLabel ? [{ key: "access", Icon: ShieldIcon, label: "App access", value: accessLabel }] : []),
               { key: "home", Icon: MapPinIcon, label: "Residence", value: member.residence || "Not recorded" },
+              { key: "marital", Icon: UsersIcon, label: "Marital status", value: member.maritalStatus || "Not recorded" },
             ].map(({ key, Icon, label, value }) => (
               <View key={key} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.muted }}>
                 <View style={{ width: 32, height: 32, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: isDark ? "#1E3A8A33" : "#EFF6FF" }}>

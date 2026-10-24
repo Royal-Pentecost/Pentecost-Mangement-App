@@ -191,7 +191,7 @@ export default function HomeTab({
   const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   // The roll comes from the server; the store no longer owns it.
-  const { members: directory } = useDirectory();
+  const { members: directory, loading: rollLoading } = useDirectory();
   const me = useMe();
   const { member: signedIn, firstTime } = useSession();
   const today = useTodayAttendance();
@@ -293,7 +293,8 @@ export default function HomeTab({
               ? [
                   {
                     label: "Church Members",
-                    sub: `${othersOnly(visibleMembers(loginRole, me ?? ME, directory), me?.id).length} registered members`,
+                    // While the roll loads it holds only the viewer, so the count read 0.
+                    sub: rollLoading ? "Loading members…" : `${othersOnly(visibleMembers(loginRole, me ?? ME, directory), me?.id).length} registered members`,
                     tint: "green" as TintName,
                     Icon: UsersIcon,
                     fn: onOpenMembers,
