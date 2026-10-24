@@ -13,24 +13,28 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BODY, BRAND, FONT, RADIUS, useTheme } from "../theme";
-import { OTP_CODE, SettingsTopic, pentecostLogo, settingsPages, sliderPhotos } from "../data";
+import { LoginRole, SettingsTopic, pentecostLogo, settingsPages, sliderPhotos } from "../data";
+import { describeError, useSession } from "../session";
 import { ArrowLeftIcon, CheckCircleIcon, ChevronDownIcon, CrownIcon, MoonIcon, ShieldIcon, SunIcon, UserIcon, XCircleIcon } from "../icons";
 import { Btn, Card, Txt, shadow } from "../ui";
 import BackgroundSlider from "../components/BackgroundSlider";
 
 /** Frosted panel that reads over any of the backdrop photographs. */
 const GLASS = {
-  backgroundColor: "rgba(255,255,255,0.11)",
+  backgroundColor: "rgba(12,20,44,0.46)",
   borderWidth: 1,
-  borderColor: "rgba(255,255,255,0.18)",
+  borderColor: "rgba(255,255,255,0.14)",
   borderRadius: RADIUS.xl,
 } as const;
 
 /** Inset field inside a glass panel. */
 const GLASS_FIELD = {
-  backgroundColor: "rgba(255,255,255,0.13)",
+  // Navy-tinted rather than white-tinted: a white veil over a bright photograph
+  // turns grey and muddy, while a dark tint keeps the field legible whatever is
+  // behind it.
+  backgroundColor: "rgba(12,20,44,0.55)",
   borderWidth: 1,
-  borderColor: "rgba(255,255,255,0.16)",
+  borderColor: "rgba(255,255,255,0.22)",
 } as const;
 
 const COUNTRIES = [
@@ -42,7 +46,27 @@ const COUNTRIES = [
 
 // ─── Phone entry ──────────────────────────────────────────────────────────────
 
-export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string) => void }) {
+export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string, devCode: string | null) => void }) {
+  const { sendCode } = useSession();
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  // The server is the one that knows whether this number is on the roll, so the
+  // screen cannot move on until it has answered.
+  const submit = async (fullPhone: string) => {
+    if (sending) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const devCode = await sendCode(fullPhone);
+      onSubmit(fullPhone, devCode);
+    } catch (e) {
+      setSendError(describeError(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
   const { c, isDark, mode, toggle } = useTheme();
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState("");
@@ -82,7 +106,7 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string) => vo
             <Image source={pentecostLogo} style={{ width: 64, height: 64 }} resizeMode="contain" />
           </View>
           
-           <Txt style={{ fontSize: 10, fontFamily:"cursive", textAlign: "center", marginTop: 8,  lineHeight: 21, maxWidth: 320, color: "#4166f5" }}>
+           <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 2.4, textTransform: "uppercase", textAlign: "center", marginTop: 10, color: BRAND.goldLight }}>
             The Church of Pentecost
           </Txt>
 
@@ -158,8 +182,17 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string) => vo
               </Txt>
             </View>
 
-            <Btn onPress={() => ready && onSubmit(fullPhone)} disabled={!ready} style={{ borderRadius: 16, overflow: "hidden" }}>
-              {ready ? (
+            {sendError ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10, borderRadius: 12, backgroundColor: "rgba(239,68,68,0.18)" }}>
+                <XCircleIcon size={16} color="#FCA5A5" />
+                <Txt variant="bodySemi" style={{ flex: 1, fontSize: 12, color: "#FCA5A5" }}>
+                  {sendError}
+                </Txt>
+              </View>
+            ) : null}
+
+            <Btn onPress={() => ready && !sending && submit(fullPhone)} disabled={!ready || sending} style={{ borderRadius: 16, overflow: "hidden" }}>
+              {ready && !sending ? (
                 <LinearGradient
                   colors={[BRAND.navy, "#2563EB"]}
                   start={{ x: 0, y: 0 }}
@@ -173,7 +206,7 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string) => vo
               ) : (
                 <View style={{ paddingVertical: 16, alignItems: "center", backgroundColor: "rgba(255,255,255,0.14)" }}>
                   <Txt variant="displayBold" style={{ fontSize: 14, color: "rgba(255,255,255,0.55)" }}>
-                    Send Verification Code →
+                    {sending ? "Sending code…" : "Send Verification Code →"}
                   </Txt>
                 </View>
               )}
@@ -277,11 +310,14 @@ function PolicyModal({ topic, onClose }: { topic: SettingsTopic | null; onClose:
 
 export function OtpScreen({
   phone,
+  devCode,
   onVerified,
   onBack,
 }: {
   phone: string;
-  onVerified: (phone: string) => void;
+  /** The code a development server hands back instead of sending an SMS. */
+  devCode?: string | null;
+  onVerified: (phone: string, role: LoginRole) => void;
   onBack: () => void;
 }) {
   const { c, isDark } = useTheme();
@@ -290,8 +326,11 @@ export function OtpScreen({
   const [digits, setDigits] = useState(["", "", "", ""]);
   const [seconds, setSeconds] = useState(45);
   const [canResend, setCanResend] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const { sendCode, signIn } = useSession();
+  const [shownDevCode, setShownDevCode] = useState<string | null>(devCode ?? null);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -307,14 +346,22 @@ export function OtpScreen({
     return () => clearTimeout(t);
   }, []);
 
-  const submitCode = (code: string) => {
-    if (code === OTP_CODE) {
+  const submitCode = async (code: string) => {
+    if (checking) return;
+    setChecking(true);
+    setError(null);
+    try {
+      const role = await signIn(phone, code);
       setVerified(true);
-      setTimeout(() => onVerified(phone), 700);
-    } else {
-      setError(true);
+      setTimeout(() => onVerified(phone, role), 700);
+    } catch (e) {
+      // The server distinguishes a wrong code from an expired one and from too
+      // many attempts; show what it actually said rather than one blanket line.
+      setError(describeError(e));
       setDigits(["", "", "", ""]);
       setTimeout(() => inputRefs.current[0]?.focus(), 50);
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -323,7 +370,7 @@ export function OtpScreen({
     const next = [...digits];
     next[idx] = ch;
     setDigits(next);
-    setError(false);
+    setError(null);
     if (ch && idx < 3) inputRefs.current[idx + 1]?.focus();
     if (next.every((d) => d) && next.join("").length === 4) submitCode(next.join(""));
   };
@@ -396,11 +443,22 @@ export function OtpScreen({
             ))}
           </View>
 
+          {__DEV__ && shownDevCode ? (
+            <View style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: "rgba(240,180,41,0.18)" }}>
+              <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: "#FBBF24" }}>
+                Development — no SMS sent
+              </Txt>
+              <Txt variant="displayExtraBold" style={{ fontSize: 24, letterSpacing: 6, marginTop: 4, color: "#FBBF24" }}>
+                {shownDevCode}
+              </Txt>
+            </View>
+          ) : null}
+
           {error ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: isDark ? "#DC262622" : "#FEE2E2" }}>
               <XCircleIcon size={16} color="#FCA5A5" />
-              <Txt variant="bodySemi" style={{ fontSize: 12, color: "#EF4444" }}>
-                Incorrect code. Try again. (Hint: {OTP_CODE})
+              <Txt variant="bodySemi" style={{ flex: 1, fontSize: 12, color: "#EF4444" }}>
+                {error}
               </Txt>
             </View>
           ) : null}
@@ -417,11 +475,19 @@ export function OtpScreen({
           <View style={{ alignItems: "center" }}>
             {canResend ? (
               <Btn
-                onPress={() => {
+                onPress={async () => {
                   setSeconds(45);
                   setCanResend(false);
-                  setError(false);
+                  setError(null);
                   setDigits(["", "", "", ""]);
+                  // Resending has to actually issue a new code — the old one is
+                  // still valid otherwise, and the member would be typing a
+                  // number that was never sent.
+                  try {
+                    setShownDevCode(await sendCode(phone));
+                  } catch (e) {
+                    setError(describeError(e));
+                  }
                 }}
               >
                 <Txt variant="bodySemi" style={{ fontSize: 14, color: "#FBBF24" }}>

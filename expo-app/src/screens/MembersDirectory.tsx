@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
-import { LoginRole, ME, Member, memberFilters, visibleMembers } from "../data";
+import { LoginRole, ME, Member, dayBornMembers, memberFilters, visibleMembers } from "../data";
+import { useDirectory, useMe } from "../directory";
 import { ChevronRightIcon, SearchIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, Txt } from "../ui";
 import { FadeIn } from "../motion";
@@ -11,20 +12,36 @@ import { useContent } from "../store";
 export default function MembersDirectory({
   onSelectMember,
   loginRole,
+  scope = "all",
   bottomInset,
 }: {
   onSelectMember: (m: Member) => void;
   loginRole: LoginRole;
+  /**
+   * `dayBorn` is the dashboard's "My Day Born Members" card: the viewer's own
+   * group and nobody else, whatever their role. `all` is the directory proper,
+   * where an admin sees the whole roll.
+   */
+  scope?: "all" | "dayBorn";
   bottomInset: number;
 }) {
   const { c, isDark } = useTheme();
-  const { directory } = useContent();
+  // The congregation comes from the server now; `ME` is only the fallback for
+  // the brief moment before the signed-in member's own record has arrived.
+  const { members: directory, loading, error } = useDirectory();
+  const me = useMe();
   const [activeFilter, setActiveFilter] = useState("All Members");
   const [search, setSearch] = useState("");
 
-  // A day-born leader only ever sees their own group.
-  const scoped = visibleMembers(loginRole, ME, directory);
-  const groupOnly = loginRole === "member";
+  // A day-born leader only ever sees their own group — and so does anyone who
+  // came in through the day-born card, admins included.
+  const viewer = me ?? ME;
+  const groupOnly = scope === "dayBorn" || loginRole === "member";
+  const scoped =
+    scope === "dayBorn" ? dayBornMembers(viewer, directory) : visibleMembers(loginRole, viewer, directory);
+  // Inside one group, a "Day-Born Leaders" chip would only ever find the person
+  // looking at it.
+  const filters = groupOnly ? memberFilters.filter((f) => f !== "Day-Born Leaders") : memberFilters;
 
   const filtered = scoped.filter((m) => {
     const matchFilter =
@@ -32,7 +49,9 @@ export default function MembersDirectory({
       // Match the milestone by name, not by position: a member added from the
       // Admin Hub starts with an empty list, and indexing [0] threw on them.
       (activeFilter === "Baptized" && m.milestones.some((ms) => ms.label === "Water Baptism" && ms.done)) ||
-      (activeFilter === "Department Leaders" && m.category === "Department Leader");
+      (activeFilter === "Department Leaders" && m.category === "Department Leader") ||
+      // This chip had no rule behind it, so it always showed an empty list.
+      (activeFilter === "Day-Born Leaders" && m.dayBornLeader);
     const q = search.toLowerCase();
     const matchSearch =
       !search ||
@@ -79,7 +98,7 @@ export default function MembersDirectory({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 12 }}
       >
-        {memberFilters.map((f) => (
+        {filters.map((f) => (
           <Btn
             key={f}
             onPress={() => setActiveFilter(f)}
@@ -109,7 +128,7 @@ export default function MembersDirectory({
       <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
         <Txt variant="bodyMedium" style={{ fontSize: 12, color: c.mutedForeground }}>
           {filtered.length} member{filtered.length !== 1 ? "s" : ""}
-          {groupOnly ? ` · ${ME.dayBorn}-born group` : ""}
+          {groupOnly ? ` · ${viewer.dayBorn}-born group` : ""}
         </Txt>
       </View>
 
@@ -193,9 +212,11 @@ export default function MembersDirectory({
           <View style={{ alignItems: "center", paddingVertical: 48 }}>
             <SearchIcon size={34} color={c.mutedForeground} />
             <Txt variant="bodySemi" style={{ fontSize: 14, marginTop: 12, color: c.foreground }}>
-              No members found
+              {loading ? "Loading the directory…" : error ? "Could not load the directory" : "No members found"}
             </Txt>
-            <Txt style={{ fontSize: 12, marginTop: 4, color: c.mutedForeground }}>Try a different filter or search term</Txt>
+            <Txt style={{ fontSize: 12, marginTop: 4, textAlign: "center", color: c.mutedForeground }}>
+              {error ?? (loading ? "Fetching members from the server" : "Try a different filter or search term")}
+            </Txt>
           </View>
         ) : null}
       </View>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 
-import { BODY, RADIUS, useTheme } from "../theme";
+import { BODY, BRAND, RADIUS, useTheme } from "../theme";
 import {
   MANUAL_REASONS,
   ManualAttendanceReason,
@@ -10,6 +10,9 @@ import {
   members as allMembers,
 } from "../data";
 import { useContent } from "../store";
+import { useDirectory } from "../directory";
+import * as Api from "../api/resources";
+import { describeError } from "../session";
 import { exportTextFile, stampedName, toCsv } from "../files";
 import {
   CheckCircleIcon,
@@ -39,6 +42,10 @@ export default function ManualAttendanceScreen({
 }) {
   const { c, isDark } = useTheme();
   const { schedule, manualAttendance, signAttendance, undoAttendance } = useContent();
+  // The congregation as the server knows it; `allMembers` is only the fallback
+  // for the moment before the directory has loaded.
+  const { members: liveRoll } = useDirectory();
+  const roll = liveRoll.length > 0 ? liveRoll : allMembers;
 
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Member | null>(null);
@@ -48,6 +55,7 @@ export default function ManualAttendanceScreen({
   const [justSigned, setJustSigned] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const exportLog = async () => {
     if (exporting) return;
@@ -80,15 +88,38 @@ export default function ManualAttendanceScreen({
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return allMembers
+    return roll
       .filter((m) => m.name.toLowerCase().includes(q) || m.memberId.toLowerCase().includes(q))
       .slice(0, 6);
-  }, [query]);
+  }, [query, roll]);
 
   const alreadySigned = picked ? signedIds.has(`${picked.id}:${service}`) : false;
 
-  const submit = () => {
+  const submit = async () => {
     if (!picked) return;
+
+    // The override has to reach the server, or the member is marked present on
+    // this phone alone and the record vanishes with the app. The reason travels
+    // with it so the entry can be questioned later.
+    setSubmitError(null);
+    const session = await Api.fetchOpenSession().catch(() => null);
+    if (!session) {
+      setSubmitError("No attendance session is open. Start one before signing on a member's behalf.");
+      return;
+    }
+
+    try {
+      await Api.markAttendance({
+        session: session.id,
+        member: picked.id,
+        method: "manual",
+        note: `${MANUAL_REASONS.find((x) => x.id === reason)?.label ?? reason} — signed by ${signedBy.name}`,
+      });
+    } catch (e) {
+      setSubmitError(describeError(e));
+      return;
+    }
+
     signAttendance({
       memberId: picked.id,
       memberName: picked.name,
@@ -126,6 +157,18 @@ export default function ManualAttendanceScreen({
           </Txt>
         </View>
       </Card>
+
+      {submitError ? (
+        <Card style={{ marginTop: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 11 }} borderColor={isDark ? "#7F1D1D" : "#FBD5D5"}>
+          <XIcon size={16} color={isDark ? "#FCA5A5" : BRAND.red} />
+          <Txt variant="bodySemi" style={{ flex: 1, fontSize: 13, color: isDark ? "#FCA5A5" : BRAND.red }}>
+            {submitError}
+          </Txt>
+          <Btn onPress={() => setSubmitError(null)}>
+            <XIcon size={16} color={c.mutedForeground} />
+          </Btn>
+        </Card>
+      ) : null}
 
       {/* Confirmation of the last signature */}
       {justSigned ? (

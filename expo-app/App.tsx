@@ -19,6 +19,11 @@ import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
 import { ThemeProvider, useTheme } from "./src/theme";
 import { ContentProvider, useContent } from "./src/store";
 import { LocationProvider, useLocation } from "./src/location";
+import { SessionProvider, useSession } from "./src/session";
+import { TodayAttendanceProvider, useTodayAttendance } from "./src/today";
+import { DirectoryProvider, useDirectory } from "./src/directory";
+import * as Api from "./src/api/resources";
+import { describeError } from "./src/session";
 import {
   AppPhase,
   Assembly,
@@ -51,10 +56,28 @@ function ChurchApp() {
   const [booting, setBooting] = useState(true);
 
   // Auth
+  // The signed-in profile comes from the session, never a copy: `onVerified`
+  // fires from a timer after sign-in resolves, and a copied value would be the
+  // stale pre-sign-in one — which rendered the dashboard with a null user.
+  // A locally chosen photograph overlays it until the upload lands.
+  const [localPhoto, setLocalPhoto] = useState<string | null>(null);
+
+  // Who the server says is signed in, and what it lets them do. Privileges come
+  // with the verified profile rather than from a table of numbers in the app.
+  const { role: sessionRole, status: sessionStatus, user: verifiedUser, member: verifiedMember, setPhoto: uploadPhoto, signOut: endSession } = useSession();
+  const { refresh: refreshDirectory } = useDirectory();
+
+  /** Privileges for this session, straight from the verified profile. */
+  const loginRole: LoginRole = sessionRole;
+
+  const sessionUser: SessionUser | null = verifiedUser
+    ? { ...verifiedUser, photo: localPhoto ?? verifiedUser.photo }
+    : null;
+
   const [appPhase, setAppPhase] = useState<AppPhase>("login");
-  const [loginRole, setLoginRole] = useState<LoginRole>("member");
   const [loginPhone, setLoginPhone] = useState("");
-  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  /** Development only: the code a console-backend server returns instead of texting it. */
+  const [loginDevCode, setLoginDevCode] = useState<string | null>(null);
   const [settingsTopic, setSettingsTopic] = useState<SettingsTopic>("help");
 
   // Navigation
@@ -92,7 +115,7 @@ function ChurchApp() {
   const [sessionActive, setSessionActive] = useState(false);
   // Where the member actually is. `certainty` guards against a fix too coarse
   // to place them on one side of the boundary or the other.
-  const { inside: userInside, certainty, fix: adminFix, startWatching } = useLocation();
+  const { inside: userInside, certainty, fix: adminFix, distance: distanceFromCentre, startWatching } = useLocation();
   const adminCertainty = certainty;
   const { geofence, openSessionAt, closeSession } = useContent();
 
@@ -104,9 +127,14 @@ function ChurchApp() {
   }, [appPhase, startWatching]);
   const locationTrusted = userInside && certainty !== "poor";
   const [attendanceMarked, setAttendanceMarked] = useState(false);
+  /** The server-side session this device is signing against. */
+  const [remoteSessionId, setRemoteSessionId] = useState<string | null>(null);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
-  const [membersPresent, setMembersPresent] = useState(89);
-  const [firstTimers, setFirstTimers] = useState(7);
+  // Counted by the server for the session that is open now — these were the
+  // literals 89 and 7, shown before anyone had signed anything.
+  const today = useTodayAttendance();
+  const { present: membersPresent, firstTimers } = today.countsFor(remoteSessionId);
 
   const scenario: AttendanceScenario =
     locationTrusted && sessionActive
@@ -124,29 +152,138 @@ function ChurchApp() {
     setAttendanceMarked(false);
   };
 
-  const handleActivateSession = () => {
+  const handleActivateSession = async () => {
     const timeStr = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
-    // Anchor the session where the admin actually is. Without a usable fix we
-    // fall back to the configured geofence rather than pinning the service to a
-    // guess — a wrong centre would lock out the whole congregation.
-    openSessionAt(
-      adminFix && adminCertainty !== "poor"
-        ? { lat: String(adminFix.lat), lng: String(adminFix.lng), radius: geofence.radius }
-        : null,
-    );
+    setAttendanceError(null);
 
+    // The server owns the session, because every member's phone has to be
+    // checked against the same centre.
+    const assemblyId = verifiedMember?.assembly?.id;
+    if (!assemblyId) {
+      setAttendanceError("Your account is not attached to an assembly, so a session cannot be opened.");
+      return;
+    }
+
+    // Anchor the session where the admin actually is. Without a usable fix the
+    // centre is left out and the server uses the assembly's own fence — never
+    // the app's local default, which is a placeholder in another town and
+    // would have put the whole congregation "outside".
+    const trustedFix = adminFix && adminCertainty !== "poor" ? adminFix : null;
+
+    let created;
+    try {
+      created = await Api.openSession({
+        assembly: assemblyId,
+        service_name: "Service",
+        centre: trustedFix ? { lat: trustedFix.lat, lng: trustedFix.lng } : undefined,
+      });
+    } catch (e) {
+      // Not open anywhere, so not open here either. Showing "Attendance Open"
+      // on this phone alone was the bug: members saw a closed session and a
+      // dark button while the admin believed attendance was running.
+      setAttendanceError(describeError(e));
+      return;
+    }
+
+    // Measure against the centre the server actually stored, so this phone and
+    // every member's agree to the metre.
+    openSessionAt({
+      lat: created.geofence_center_lat,
+      lng: created.geofence_center_lng,
+      radius: String(created.geofence_radius_meters),
+    });
+    setRemoteSessionId(created.id);
     setSessionActive(true);
     setSessionStartTime(timeStr);
-    setMembersPresent(89);
-    setFirstTimers(7);
+    void today.refresh();
   };
 
-  const handleTerminateSession = () => {
+  const handleTerminateSession = async () => {
+    setAttendanceError(null);
+
+    // Closed on the server first. Closing locally regardless left the admin
+    // believing the service had ended while members could still sign in.
+    if (remoteSessionId) {
+      try {
+        await Api.closeSession(remoteSessionId);
+      } catch (e) {
+        setAttendanceError(describeError(e));
+        return;
+      }
+    }
+
     closeSession();
+    setRemoteSessionId(null);
     setSessionActive(false);
     setSessionStartTime(null);
+    void today.refresh();
   };
+
+  /**
+   * Walk straight in when a previous sign-in is still valid.
+   *
+   * Without this the app would restore the token and then still show the login
+   * screen, which is the same as not restoring it at all. A member goes to their
+   * own dashboard; an admin to the assembly picker, because they may work in
+   * more than one.
+   */
+  useEffect(() => {
+    if (sessionStatus !== "signedIn" || appPhase !== "login") return;
+
+    if (sessionRole === "member") {
+      setSelectedAssembly(assemblies.find((a) => a.id === ME.assemblyId) ?? assemblies[0]);
+      setScreen("dashboard");
+      resetHistory();
+    }
+    // Straight to the app: the welcome splash belongs to a fresh sign-in, not
+    // to every launch for the next four weeks.
+    setAppPhase("app");
+  }, [sessionStatus, sessionRole, appPhase]);
+
+  /**
+   * Adopt whatever session the server says is open.
+   *
+   * The admin opens attendance on their own device; every other phone has to
+   * find out some other way. Without this a member would sit looking at
+   * "Attendance Session Closed" through the whole service.
+   */
+  useEffect(() => {
+    if (appPhase !== "app") return;
+
+    let stopped = false;
+    const sync = async () => {
+      try {
+        const open = await Api.fetchOpenSession();
+        if (stopped) return;
+
+        if (open) {
+          setRemoteSessionId(open.id);
+          setSessionActive(true);
+          // Measure against the session's own centre, not the stored fence.
+          openSessionAt({
+            lat: open.geofence_center_lat,
+            lng: open.geofence_center_lng,
+            radius: String(open.geofence_radius_meters),
+          });
+        } else {
+          setRemoteSessionId(null);
+          setSessionActive(false);
+          closeSession();
+        }
+      } catch {
+        // A failed poll leaves the last known state alone — a dropped request
+        // is not evidence that the service ended.
+      }
+    };
+
+    void sync();
+    const timer = setInterval(sync, 30_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [appPhase, openSessionAt, closeSession]);
 
   const handleBack = () => {
     if (history.length > 1) {
@@ -182,10 +319,13 @@ function ChurchApp() {
   }, [appPhase, booting, screen, canGoBack, history.length, loginRole]);
 
   const handleLogout = () => {
+    // Drop the token from the keystore too, or the next launch would restore a
+    // session the member thought they had ended.
+    void endSession();
+
     setAppPhase("login");
-    setLoginRole("member");
     setLoginPhone("");
-    setSessionUser(null);
+    setLocalPhoto(null);
     setScreen("home");
     setSelectedAssembly(null);
     resetHistory();
@@ -196,9 +336,33 @@ function ChurchApp() {
     setAttendanceMarked(false);
   };
 
-  const markAttendance = () => {
-    setAttendanceMarked(true);
-    setMembersPresent((p) => p + 1);
+  const markAttendance = async () => {
+    if (!remoteSessionId) {
+      setAttendanceError("No open session on the server yet. Ask an admin to start attendance.");
+      return;
+    }
+    if (!adminFix) {
+      setAttendanceError("Still finding your location.");
+      return;
+    }
+
+    setAttendanceError(null);
+    try {
+      // Where the phone is, not how far it believes it is: the server measures
+      // the distance against the session's centre and decides for itself.
+      await Api.markAttendance({
+        session: remoteSessionId,
+        method: "gps",
+        lat: adminFix.lat,
+        lng: adminFix.lng,
+      });
+      setAttendanceMarked(true);
+      // Re-read rather than add one: a second tap, or the same member on two
+      // phones, is one person present — the server's count already knows that.
+      void today.refresh();
+    } catch (e) {
+      setAttendanceError(describeError(e));
+    }
   };
 
   // ─── Startup ────────────────────────────────────────────────────────────────
@@ -219,8 +383,9 @@ function ChurchApp() {
       <View style={{ flex: 1, backgroundColor: c.background }}>
         <StatusBar style={isDark ? "light" : "dark"} />
         <PhoneInputScreen
-          onSubmit={(phone) => {
+          onSubmit={(phone, devCode) => {
             setLoginPhone(phone);
+            setLoginDevCode(devCode);
             setAppPhase("otp");
           }}
         />
@@ -234,11 +399,12 @@ function ChurchApp() {
         <StatusBar style={isDark ? "light" : "dark"} />
         <OtpScreen
           phone={loginPhone}
+          devCode={loginDevCode}
           onBack={() => setAppPhase("login")}
-          onVerified={(phone) => {
-            const stripped = phone.replace(/\s/g, "").replace("+233", "0");
-            const role = PHONE_ROLES[stripped] ?? "member";
-            setLoginRole(role);
+          onVerified={(_phone, role) => {
+            // `signIn` has already run inside OtpScreen; the role is handed in
+            // from there rather than read here, because this callback fires
+            // from a timer and would otherwise capture the pre-sign-in value.
 
             // A member belongs to exactly one assembly, so the picker would be a
             // dead end for them — drop them straight onto their own dashboard.
@@ -248,7 +414,6 @@ function ChurchApp() {
               resetHistory();
             }
 
-            setSessionUser(resolveSessionUser(phone));
             setAppPhase("welcome");
           }}
         />
@@ -280,6 +445,7 @@ function ChurchApp() {
           onChangeTab={(t) => go({ tab: t, sub: "none" })}
           onBack={handleBack}
           scenario={scenario}
+          attendanceError={attendanceError}
           sessionActive={sessionActive}
           sessionStartTime={sessionStartTime}
           membersPresent={membersPresent}
@@ -298,6 +464,7 @@ function ChurchApp() {
           }}
           selectedMember={selectedMember}
           onOpenMembers={() => go({ sub: "members" })}
+          onOpenDayBorn={() => go({ sub: "dayBorn" })}
           onSelectMember={(m) => {
             setSelectedMember(m);
             go({ sub: "memberProfile" });
@@ -308,7 +475,19 @@ function ChurchApp() {
           onOpenPublish={() => go({ sub: "publish" })}
           onOpenNotifications={() => go({ sub: "notifications" })}
           sessionUser={sessionUser!}
-          onChangePhoto={(uri) => setSessionUser((u) => (u ? { ...u, photo: uri } : u))}
+          onChangePhoto={async (uri) => {
+            // Show it straight away so the tap feels answered, then upload. If
+            // the upload fails the preview is dropped rather than left looking
+            // saved — a photo that only exists on this phone is a lie.
+            setLocalPhoto(uri);
+            try {
+              await uploadPhoto(uri);
+              setLocalPhoto(null);
+              await refreshDirectory();
+            } catch {
+              setLocalPhoto(null);
+            }
+          }}
           settingsTopic={settingsTopic}
           onOpenSettingsTopic={(t) => {
             setSettingsTopic(t);
@@ -355,11 +534,17 @@ export default function App() {
     <SafeAreaProvider>
       <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
         <ThemeProvider>
-          <ContentProvider>
-            <LocationBridge>
-              <ChurchApp />
-            </LocationBridge>
-          </ContentProvider>
+          <SessionProvider>
+            <DirectoryProvider>
+              <ContentProvider>
+                <TodayAttendanceProvider>
+                <LocationBridge>
+                  <ChurchApp />
+                </LocationBridge>
+                </TodayAttendanceProvider>
+              </ContentProvider>
+            </DirectoryProvider>
+          </SessionProvider>
         </ThemeProvider>
       </View>
     </SafeAreaProvider>

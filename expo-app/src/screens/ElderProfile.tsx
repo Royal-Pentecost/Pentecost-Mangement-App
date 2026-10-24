@@ -54,7 +54,9 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
               </Txt>
             </View>
 
-            <Txt style={{ fontSize: 12, marginTop: 8, color: "#BFDBFE" }}>In service since {elder.since}</Txt>
+            {elder.since ? (
+              <Txt style={{ fontSize: 12, marginTop: 8, color: "#BFDBFE" }}>In service since {elder.since}</Txt>
+            ) : null}
           </View>
         </LinearGradient>
 

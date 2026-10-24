@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RADIUS, useTheme } from "../theme";
 import { SessionUser, pentecostLogo, welcomeBackground } from "../data";
 import { Avatar, Txt, shadow } from "../ui";
+import { WavingHand } from "../motion";
+import { useSession } from "../session";
 
 /**
  * Drop the honorific and greet by given name — but when that leaves only an
@@ -26,6 +28,7 @@ function toGreetingName(fullName: string) {
 export default function WelcomeScreen({ user, onDone }: { user: SessionUser; onDone: () => void }) {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { firstTime } = useSession();
   const { width, height } = useWindowDimensions();
 
   const fade = useRef(new Animated.Value(0)).current;
@@ -119,14 +122,18 @@ export default function WelcomeScreen({ user, onDone }: { user: SessionUser; onD
 
       <Animated.View style={{ alignItems: "center", opacity: fade, transform: [{ translateY: rise }] }}>
         <Txt variant="bodySemi" style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>
-          Welcome back
+          {firstTime ? "Welcome" : "Welcome back"}
         </Txt>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 }}>
           <Txt variant="displayExtraBold" style={{ fontSize: 34, color: "#fff", textAlign: "center" }}>
             {greetingName}
           </Txt>
-          <Txt style={{ fontSize: 26, lineHeight: 32 }}>👋</Txt>
+          {/* The emoji itself, waved. A drawn icon reads as a symbol; the
+              emoji reads as a hand, which is what a greeting wants. */}
+          <WavingHand>
+            <Txt style={{ fontSize: 30, lineHeight: 36 }}>👋</Txt>
+          </WavingHand>
         </View>
 
         <Txt variant="bodyMedium" style={{ fontSize: 14, marginTop: 8, color: "rgba(255,255,255,0.7)", textAlign: "center" }}>

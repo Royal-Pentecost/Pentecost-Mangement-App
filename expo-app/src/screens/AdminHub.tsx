@@ -39,6 +39,17 @@ import {
 import { Btn, Card, Ping, Pulse, TintTile, Txt, tintFg } from "../ui";
 import { FadeIn, PopIn } from "../motion";
 import { useLocation } from "../location";
+import { useDirectory } from "../directory";
+
+import * as Api from "../api/resources";
+import { describeError, useSession } from "../session";
+
+/** The app's milestone labels, in the server's vocabulary. */
+const MILESTONE_TYPE: Record<string, "baptism" | "confirmation" | "certification" | "other"> = {
+  "Water Baptism": "baptism",
+  Confirmation: "confirmation",
+  "Marriage Certification": "certification",
+};
 
 /** Record-section icon keys map to line icons. */
 const SECTION_ICONS: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
@@ -82,6 +93,56 @@ function MiniField({
           backgroundColor: c.card,
         }}
       />
+    </View>
+  );
+}
+
+/**
+ * A labelled pair of choices, sitting on the same surface as `MiniField`.
+ *
+ * Not `ChipRow`: that one fills an unselected chip with `c.muted`, which is
+ * exactly the colour a `MiniForm` is drawn on — inside one, the pills vanish
+ * and the options read as two stray words.
+ */
+function MiniChoice<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { id: T; label: string }[];
+  value: T | "";
+  onChange: (v: T) => void;
+}) {
+  const { c } = useTheme();
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <Txt style={{ fontSize: 11, marginBottom: 6, color: c.mutedForeground }}>{label}</Txt>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {options.map((o) => {
+          const active = o.id === value;
+          return (
+            <Btn
+              key={o.id}
+              onPress={() => onChange(o.id)}
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                borderRadius: RADIUS.sm,
+                alignItems: "center",
+                borderWidth: 1,
+                borderColor: active ? BRAND.navy : c.border,
+                backgroundColor: active ? BRAND.navy : c.card,
+              }}
+            >
+              <Txt variant="bodySemi" style={{ fontSize: 12.5, color: active ? "#fff" : c.mutedForeground }}>
+                {o.label}
+              </Txt>
+            </Btn>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -146,9 +207,7 @@ export default function AdminHub({
   const [correctionFirstName, setCorrectionFirstName] = useState("");
   const [correctionMiddleName, setCorrectionMiddleName] = useState("");
   const [correctionLastName, setCorrectionLastName] = useState("");
-  const [correctionId, setCorrectionId] = useState("");
   const [correctionPhone, setCorrectionPhone] = useState("");
-  const [correctionAssembly, setCorrectionAssembly] = useState("");
 
   const splitMemberName = (name: string) => {
     const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -227,20 +286,33 @@ export default function AdminHub({
     });
 
   // ── Record category forms ───────────────────────────────────────────────────
+  //
+  // Read before the correction form below, which searches the real roll rather
+  // than the seeded `directory` — correcting a record only means something if
+  // the record is the one the server holds.
+  const { members: liveMembers, loading: directoryLoading, refresh: refreshDirectory } = useDirectory();
+
   const {
-    directory,
-    addMember,
-    updateMember,
     geofence,
     saveGeofence,
     milestoneLog,
     logMilestone,
   } = useContent();
 
-  const correctionMatches = directory.filter((member) => {
-    const query = correctionSearch.trim().toLowerCase();
-    return !query || member.name.toLowerCase().includes(query) || member.memberId.toLowerCase().includes(query) || member.phone.toLowerCase().includes(query);
-  }).slice(0, 6);
+  // Searched against the roll the server holds, not the seeds. With 328 names
+  // an empty box would otherwise list the first six alphabetically, which is
+  // never who the admin came to correct — so it asks for a search first.
+  const correctionQuery = correctionSearch.trim().toLowerCase();
+  const correctionMatches = correctionQuery
+    ? liveMembers
+        .filter(
+          (member) =>
+            member.name.toLowerCase().includes(correctionQuery) ||
+            member.memberId.toLowerCase().includes(correctionQuery) ||
+            member.phone.includes(correctionQuery),
+        )
+        .slice(0, 8)
+    : [];
 
   const chooseCorrectionMember = (member: Member) => {
     setCorrectionMember(member);
@@ -248,55 +320,115 @@ export default function AdminHub({
     setCorrectionFirstName(member.firstName ?? names.first);
     setCorrectionMiddleName(member.middleName ?? names.middle);
     setCorrectionLastName(member.lastName ?? names.last);
-    setCorrectionId(member.memberId);
     setCorrectionPhone(member.phone);
-    setCorrectionAssembly(member.assembly);
   };
 
-  const saveCorrection = () => {
-    if (!correctionMember || !correctionFirstName.trim() || !correctionLastName.trim() || !correctionId.trim()) return;
-    const fullName = [correctionFirstName, correctionMiddleName, correctionLastName].map((part) => part.trim()).filter(Boolean).join(" ");
-    updateMember(correctionMember.id, {
-      name: fullName,
-      firstName: correctionFirstName.trim(),
-      middleName: correctionMiddleName.trim(),
-      lastName: correctionLastName.trim(),
-      memberId: correctionId.trim(),
-      phone: correctionPhone.trim(),
-      assembly: correctionAssembly.trim() || "Royal Assembly",
-    });
-    setStatus({ ok: true, message: `${fullName}'s member record was corrected.` });
-    setCorrectionMember(null);
-    setCorrectionSearch("");
-    setCorrectionOpen(false);
+  const [savingCorrection, setSavingCorrection] = useState(false);
+
+  /**
+   * Writes the correction to the server.
+   *
+   * It used to write to local state only, so a fixed name was right on this
+   * phone until the app was closed and wrong on everyone else's the whole time.
+   * The record belongs to the server; this sends it there and re-reads the
+   * roll, so what the admin sees afterwards is what was actually stored.
+   *
+   * `member_id` is not sent — it is the church's own identifier and read-only
+   * on the server. Renaming one would break every attendance record pointing
+   * at it, so a wrong id is a conversation with the church, not a form field.
+   */
+  const saveCorrection = async () => {
+    if (!correctionMember || !correctionFirstName.trim() || !correctionLastName.trim()) return;
+    const fullName = [correctionFirstName, correctionMiddleName, correctionLastName]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(" ");
+
+    setSavingCorrection(true);
+    try {
+      const saved = await Api.updateMemberRecord(correctionMember.id, {
+        full_name: fullName,
+        // Sent even when blank: an empty box means "remove the login", which is
+        // how an admin undoes a number typed against the wrong person.
+        phone_number: correctionPhone.trim(),
+      });
+      await refreshDirectory();
+
+      // The server's copy, not what was typed — "+233 24 XXX XXXX" is stored as
+      // "024XXXXXXX", and the stored form is the one the member signs in with.
+      const phoneNote = saved.phone_number
+        ? ` They sign in with ${saved.phone_number}.`
+        : " They have no phone number on file.";
+      setStatus({ ok: true, message: `${fullName}'s record was corrected.${phoneNote}` });
+      setCorrectionMember(null);
+      setCorrectionSearch("");
+      setCorrectionOpen(false);
+    } catch (e) {
+      // Kept open with the typed values intact — a rejected number is usually
+      // a typo, and closing the sheet would make them find the member again.
+      setStatus({ ok: false, message: describeError(e) });
+    } finally {
+      setSavingCorrection(false);
+    }
   };
 
   // Quick add member
   const nameRef = useRef<TextInput | null>(null);
   const memberIdRef = useRef<TextInput | null>(null);
-  const assemblyRef = useRef<TextInput | null>(null);
   const [mFirstName, setMFirstName] = useState("");
   const [mMiddleName, setMMiddleName] = useState("");
   const [mLastName, setMLastName] = useState("");
   const [mPhone, setMPhone] = useState("");
-  const [mAssembly, setMAssembly] = useState("Royal Assembly");
   const [mId, setMId] = useState("");
+  const [mSex, setMSex] = useState<"M" | "F" | "">("");
+  const [addingMember, setAddingMember] = useState(false);
 
-  const memberReady = mFirstName.trim() !== "" && mLastName.trim() !== "" && mId.trim() !== "";
+  // The member ID is no longer required — the server allocates the next free
+  // one. Asking an admin to invent it was how two people adding members during
+  // the same service ended up guessing the same number.
+  const memberReady = mFirstName.trim() !== "" && mLastName.trim() !== "";
 
-  const submitMember = () => {
+  const submitMember = async () => {
     const fullName = [mFirstName, mMiddleName, mLastName].map((part) => part.trim()).filter(Boolean).join(" ");
-    addMember({ firstName: mFirstName.trim(), middleName: mMiddleName.trim(), lastName: mLastName.trim(), phone: mPhone.trim(), assembly: mAssembly.trim() || "Royal Assembly", memberId: mId.trim() });
-    setStatus({ ok: true, message: `${fullName} added to the directory as ${mId.trim()}` });
+
+    // Added on the server, so the member exists for every device — adding them
+    // only in local state would lose them on the next launch.
+    setAddingMember(true);
+    try {
+      const created = await Api.createMemberRecord({
+        member_id: mId.trim() || undefined,
+        full_name: fullName,
+        phone_number: mPhone.trim() || undefined,
+        sex: mSex,
+      });
+      await refreshDirectory();
+      setStatus({
+        ok: true,
+        message:
+          `${fullName} added as ${created.member_id}.` +
+          (mPhone.trim()
+            ? ` They can sign in with ${mPhone.trim()}.`
+            : " Add a phone number when you have one so they can sign in."),
+      });
+    } catch (e) {
+      // The typed values stay put: a rejected phone number or a taken ID is a
+      // correction to make, not a reason to retype the whole person.
+      setStatus({ ok: false, message: describeError(e) });
+      return;
+    } finally {
+      setAddingMember(false);
+    }
     setMFirstName("");
     setMMiddleName("");
     setMLastName("");
     setMPhone("");
+    setMSex("");
     setMId("");
   };
 
   // Geofence
   const { fix } = useLocation();
+  const { member: verifiedMember } = useSession();
   const latRef = useRef<TextInput | null>(null);
   const [gLat, setGLat] = useState(geofence.lat);
   const [gLng, setGLng] = useState(geofence.lng);
@@ -313,8 +445,25 @@ export default function AdminHub({
     setStatus({ ok: true, message: `Picked up your position, accurate to about ${Math.round(fix.accuracy)}m. Save to apply.` });
   };
 
-  const submitGeofence = () => {
+  const submitGeofence = async () => {
     saveGeofence({ lat: gLat.trim(), lng: gLng.trim(), radius: gRadius.trim() });
+
+    // The boundary belongs to the assembly on the server; saving it only on this
+    // phone would leave every other device measuring against the old centre.
+    const assemblyId = verifiedMember?.assembly?.id;
+    if (assemblyId) {
+      try {
+        await Api.updateAssembly(assemblyId, {
+          geofence_center_lat: gLat.trim(),
+          geofence_center_lng: gLng.trim(),
+          geofence_radius_meters: Number(gRadius.trim()) || 100,
+        });
+      } catch (e) {
+        setStatus({ ok: false, message: describeError(e) });
+        return;
+      }
+    }
+
     setStatus({ ok: true, message: `Geofence set to ${gLat.trim()}, ${gLng.trim()} · ${gRadius.trim()}m radius` });
   };
 
@@ -326,9 +475,37 @@ export default function AdminHub({
   const toggleTick = (label: MilestoneLabel) =>
     setMsTicked((list) => (list.includes(label) ? list.filter((l) => l !== label) : [...list, label]));
 
-  const submitMilestones = () => {
+  const submitMilestones = async () => {
     const member = msMember.trim();
     msTicked.forEach((milestone) => logMilestone({ member, milestone, loggedBy: signedInAs }));
+
+    // Match the typed name or id against the real roll, so the milestone lands
+    // on a record rather than a string.
+    const target = liveMembers.find(
+      (m) =>
+        m.memberId.toLowerCase() === member.toLowerCase() ||
+        m.name.toLowerCase() === member.toLowerCase(),
+    );
+    if (!target) {
+      setStatus({ ok: false, message: `No member matches "${member}".` });
+      return;
+    }
+
+    try {
+      await Promise.all(
+        msTicked.map((label) =>
+          Api.createMilestone({
+            member: target.id as never,
+            milestone_type: MILESTONE_TYPE[label] ?? "other",
+            date_occurred: new Date().toISOString().slice(0, 10),
+          }),
+        ),
+      );
+      await refreshDirectory();
+    } catch (e) {
+      setStatus({ ok: false, message: describeError(e) });
+      return;
+    }
     setStatus({ ok: true, message: `${msTicked.length} milestone${msTicked.length === 1 ? "" : "s"} recorded for ${member}` });
     setMsMember("");
     setMsTicked([]);
@@ -346,7 +523,7 @@ export default function AdminHub({
     "Add New Member": focus(nameRef, "members"),
     "Upload Profile Photo": uploadPhoto,
     "Assign Member ID": focus(memberIdRef, "members"),
-    "Set Assembly / District": focus(assemblyRef, "members"),
+    "Correct Member Record": () => setCorrectionOpen(true),
 
     // Attendance
     "Set Geofence Coordinates": focus(latRef, "attendance"),
@@ -368,9 +545,28 @@ export default function AdminHub({
     "Mark Special Ordination": () => { setMsTicked(["Special Ordination"]); focus(milestoneMemberRef, "milestones")(); },
   };
 
+  // Counts come from the roll the server holds, not a figure typed in once.
+  const incompleteCount = liveMembers.filter((m) => !m.phone || !m.dayBorn).length;
+
   const overviewStats = [
-    { label: "Total Members", value: "1,248", sub: "Records", Icon: UsersIcon, color: isDark ? BRAND.blue : BRAND.navy, bg: isDark ? "#1E3A8A22" : "#EFF6FF" },
-    { label: "Incomplete Profiles", value: "14", sub: "Pending", Icon: AlertTriangleIcon, color: isDark ? BRAND.goldLight : BRAND.gold, bg: isDark ? "#D9770622" : "#FEF3C7" },
+    {
+      label: "Total Members",
+      value: directoryLoading ? "…" : liveMembers.length.toLocaleString(),
+      sub: "Records",
+      Icon: UsersIcon,
+      color: isDark ? BRAND.blue : BRAND.navy,
+      bg: isDark ? "#1E3A8A22" : "#EFF6FF",
+    },
+    {
+      // "Incomplete" means the office still has work to do on the record —
+      // most of the roll arrived without a phone number or a birth date.
+      label: "Incomplete Profiles",
+      value: directoryLoading ? "…" : String(incompleteCount),
+      sub: "Pending",
+      Icon: AlertTriangleIcon,
+      color: isDark ? BRAND.goldLight : BRAND.gold,
+      bg: isDark ? "#D9770622" : "#FEF3C7",
+    },
     {
       label: "Active Sessions",
       value: sessionActive ? "1" : "0",
@@ -379,7 +575,7 @@ export default function AdminHub({
       color: sessionActive ? (isDark ? BRAND.greenLight : BRAND.greenDark) : isDark ? "#94A3B8" : "#6C757D",
       bg: sessionActive ? (isDark ? "#16A34A22" : "#DCFCE7") : c.muted,
     },
-    { label: "Assemblies", value: "4", sub: "Active", Icon: ChurchIcon, color: isDark ? "#A78BFA" : BRAND.purple, bg: isDark ? "#7C3AED22" : "#EDE9FE" },
+    { label: "Assemblies", value: "1", sub: "Active", Icon: ChurchIcon, color: isDark ? "#A78BFA" : BRAND.purple, bg: isDark ? "#7C3AED22" : "#EDE9FE" },
   ];
 
   const searchResults = members.filter(
@@ -586,7 +782,7 @@ export default function AdminHub({
             tint: "amber" as const,
             Icon: CorrectMemberIcon,
             title: "Correct Member Data",
-            desc: "Fix a member's name, ID, phone number, or assembly",
+            desc: "Fix a member's name, or give them the phone number they sign in with",
             onPress: () => setCorrectionOpen(true),
           },
         ].map((tool, i) => (
@@ -638,20 +834,46 @@ export default function AdminHub({
                 {correctionMatches.map((member) => (
                   <Btn key={member.id} onPress={() => chooseCorrectionMember(member)} style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: c.border }}>
                     <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>{member.name}</Txt>
-                    <Txt style={{ fontSize: 12, marginTop: 2, color: c.mutedForeground }}>{member.memberId} · {member.phone}</Txt>
+                    <Txt style={{ fontSize: 12, marginTop: 2, color: c.mutedForeground }}>
+                      {member.memberId} · {member.phone || "no phone on file"}
+                    </Txt>
                   </Btn>
                 ))}
+
+                {/* Three states, not one: nothing typed, nothing found, and the
+                    roll still loading all read differently to an admin. */}
+                {correctionMatches.length === 0 ? (
+                  <Txt style={{ fontSize: 12.5, lineHeight: 19, paddingVertical: 18, textAlign: "center", color: c.mutedForeground }}>
+                    {directoryLoading
+                      ? "Loading the roll…"
+                      : !correctionQuery
+                        ? `Type a name, member ID, or phone number to search ${liveMembers.length.toLocaleString()} members.`
+                        : `No member matches “${correctionSearch.trim()}”.`}
+                  </Txt>
+                ) : null}
               </ScrollView>
             ) : (
               <ScrollView style={{ marginTop: 12 }} keyboardShouldPersistTaps="handled">
+                {/* The member ID is the church's own identifier and every
+                    attendance record points at it, so it is shown rather than
+                    offered as a field. */}
+                <View style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: c.muted }}>
+                  <Txt style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: c.mutedForeground }}>Correcting</Txt>
+                  <Txt variant="displayBold" style={{ fontSize: 15, marginTop: 3, color: c.foreground }}>{correctionMember.name}</Txt>
+                  <Txt style={{ fontSize: 12, marginTop: 2, color: c.mutedForeground }}>{correctionMember.memberId} · {correctionMember.assembly}</Txt>
+                </View>
+
                 <MiniForm title="Correct fields">
                   <MiniField placeholder="First name" value={correctionFirstName} onChangeText={setCorrectionFirstName} />
                   <MiniField placeholder="Middle name" value={correctionMiddleName} onChangeText={setCorrectionMiddleName} />
                   <MiniField placeholder="Last name" value={correctionLastName} onChangeText={setCorrectionLastName} />
-                  <MiniField placeholder="Member ID" value={correctionId} onChangeText={setCorrectionId} />
-                  <MiniField placeholder="Phone number" value={correctionPhone} onChangeText={setCorrectionPhone} keyboardType="phone-pad" />
-                  <MiniField placeholder="Assigned assembly" value={correctionAssembly} onChangeText={setCorrectionAssembly} />
-                  <MiniSave label="Save correction" onPress={saveCorrection} disabled={!correctionFirstName.trim() || !correctionLastName.trim() || !correctionId.trim()} color={BRAND.gold} />
+                  <MiniField placeholder="Phone number (blank removes their login)" value={correctionPhone} onChangeText={setCorrectionPhone} keyboardType="phone-pad" />
+                  <MiniSave
+                    label={savingCorrection ? "Saving…" : "Save correction"}
+                    onPress={saveCorrection}
+                    disabled={savingCorrection || !correctionFirstName.trim() || !correctionLastName.trim()}
+                    color={BRAND.gold}
+                  />
                 </MiniForm>
                 <Btn onPress={() => setCorrectionMember(null)} style={{ paddingVertical: 12, alignItems: "center" }}>
                   <Txt variant="bodySemi" style={{ fontSize: 13, color: c.primary }}>Choose a different member</Txt>
@@ -742,17 +964,34 @@ export default function AdminHub({
                   </View>
 
                   {section.id === "members" ? (
-                    <MiniForm title={`Quick Add Member — ${directory.length} on file`}>
+                    <MiniForm title={`Quick Add Member — ${directoryLoading ? "…" : liveMembers.length.toLocaleString()} on file`}>
                       <MiniField placeholder="First name" value={mFirstName} onChangeText={setMFirstName} inputRef={nameRef} />
                       <MiniField placeholder="Middle name" value={mMiddleName} onChangeText={setMMiddleName} />
                       <MiniField placeholder="Last name" value={mLastName} onChangeText={setMLastName} />
-                      <MiniField placeholder="Phone number" value={mPhone} onChangeText={setMPhone} inputRef={undefined} keyboardType="phone-pad" />
-                      <MiniField placeholder="Member ID (e.g. MEM-0731)" value={mId} onChangeText={setMId} inputRef={memberIdRef} />
-                      <MiniField placeholder="Assigned assembly" value={mAssembly} onChangeText={setMAssembly} inputRef={assemblyRef} />
+                      <MiniField placeholder="Phone number (optional — gives them a login)" value={mPhone} onChangeText={setMPhone} keyboardType="phone-pad" />
+
+                      {/* Sex decides how the app addresses them — "Mr Mensah"
+                          rather than "Kwame" for an adult member. Tapping the
+                          chosen one again clears it, because the roll really
+                          does contain people whose sex was never recorded. */}
+                      <MiniChoice
+                        label="Sex — sets how the app addresses them (optional)"
+                        options={[{ id: "M" as const, label: "Male" }, { id: "F" as const, label: "Female" }]}
+                        value={mSex}
+                        onChange={(v) => setMSex(mSex === v ? "" : v)}
+                      />
+
+                      <MiniField placeholder="Member ID (optional — allocated for you)" value={mId} onChangeText={setMId} inputRef={memberIdRef} />
                       <MiniSave
-                        label={memberReady ? `Add ${mFirstName.trim()}` : "First, last name and membership ID required"}
+                        label={
+                          addingMember
+                            ? "Adding…"
+                            : memberReady
+                              ? `Add ${mFirstName.trim()}`
+                              : "First and last name required"
+                        }
                         onPress={submitMember}
-                        disabled={!memberReady}
+                        disabled={!memberReady || addingMember}
                         color={accentColor}
                       />
                     </MiniForm>

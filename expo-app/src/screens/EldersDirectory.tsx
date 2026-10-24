@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
-import { Elder, elders, leaderFilters } from "../data";
+import { Elder, leaderFilters } from "../data";
+import { useDirectory } from "../directory";
 import { ChevronRightIcon, SearchIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, TintTile, Txt, tintFg } from "../ui";
 import { FadeIn } from "../motion";
@@ -15,6 +16,9 @@ export default function EldersDirectory({
   bottomInset: number;
 }) {
   const { c, isDark } = useTheme();
+  // Every office holder on the roll, ranked presiding elder → elders → deacons →
+  // deaconesses. This read the nine seeded leaders in `data.ts` until now.
+  const { elders, loading, error } = useDirectory();
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -72,7 +76,7 @@ export default function EldersDirectory({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}
       >
-        {leaderFilters.map(({ label: f }) => (
+        {leaderFilters.map(({ label: f, office }) => (
           <Btn
             key={f}
             onPress={() => setActiveFilter(f)}
@@ -94,6 +98,7 @@ export default function EldersDirectory({
           >
             <Txt variant="bodySemi" style={{ fontSize: 12, color: activeFilter === f ? "#fff" : c.mutedForeground }}>
               {f}
+              {elders.length ? ` · ${office === "All" ? elders.length : elders.filter((e) => e.office === office).length}` : ""}
             </Txt>
           </Btn>
         ))}
@@ -141,9 +146,10 @@ export default function EldersDirectory({
                   {elder.name}
                 </Txt>
                 <Txt style={{ fontSize: 12, marginTop: 2, color: c.mutedForeground }}>
-                  {elder.title} — {elder.assembly}
+                  {[elder.title, elder.assembly].filter(Boolean).join(" — ")}
                 </Txt>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                  {elder.assembly ? (
                   <View
                     style={{
                       paddingHorizontal: 8,
@@ -164,7 +170,10 @@ export default function EldersDirectory({
                       {elder.assembly}
                     </Txt>
                   </View>
-                  <Txt style={{ fontSize: 10, color: c.mutedForeground }}>In service since {elder.since}</Txt>
+                  ) : null}
+                  {elder.since ? (
+                    <Txt style={{ fontSize: 10, color: c.mutedForeground }}>In service since {elder.since}</Txt>
+                  ) : null}
                 </View>
               </View>
 
@@ -180,9 +189,11 @@ export default function EldersDirectory({
           <View style={{ alignItems: "center", paddingVertical: 48 }}>
             <SearchIcon size={34} color={c.mutedForeground} />
             <Txt variant="bodySemi" style={{ fontSize: 14, marginTop: 12, color: c.foreground }}>
-              No leaders found
+              {loading ? "Loading church leaders…" : error ? "Could not load church leaders" : "No leaders found"}
             </Txt>
-            <Txt style={{ fontSize: 12, marginTop: 4, color: c.mutedForeground }}>Try a different filter or search term</Txt>
+            <Txt style={{ fontSize: 12, marginTop: 4, textAlign: "center", paddingHorizontal: 24, color: c.mutedForeground }}>
+              {error ?? (loading ? "Fetching the leadership roll from the server" : "Try a different filter or search term")}
+            </Txt>
           </View>
         ) : null}
       </View>

@@ -13,6 +13,8 @@ export type SubScreen =
   | "elders"
   | "elderProfile"
   | "members"
+  /** The viewer's own day-born group only — not the whole roll. */
+  | "dayBorn"
   | "memberProfile"
   | "myDashboard"
   | "adminHub"
@@ -87,6 +89,17 @@ export interface Member {
   dayBorn: DayBorn;
   /** True when this member leads their day-born group. */
   dayBornLeader: boolean;
+  /**
+   * What the server lets this member do. Seeded records are ordinary members;
+   * the real value arrives with the directory.
+   */
+  role?: LoginRole;
+  /** "M" | "F", or absent when the roll does not record it. */
+  sex?: string;
+  /** ISO date, for working out whether an honorific applies. */
+  dateOfBirth?: string | null;
+  /** The office they hold in the church — "Elder", "Deaconess", and so on. */
+  churchTitle?: string;
 }
 
 export interface AdminUser {
@@ -1232,11 +1245,14 @@ export const recordSections = [
     id: "members",
     title: "Member Directory Data",
     icon: "users",
-    desc: "Add members, upload photos, assign IDs and assemblies",
+    desc: "Add members, upload photos, correct records and phone numbers",
     pct: 87,
     color: "#1E3A8A",
     darkColor: "#3B82F6",
-    actions: ["Add New Member", "Upload Profile Photo", "Assign Member ID", "Set Assembly / District"],
+    // "Set Assembly / District" was dropped: a member's assembly follows the
+    // admin who adds them, and only Royal Assembly is live, so the field it
+    // focused was a free-text box the server never read.
+    actions: ["Add New Member", "Upload Profile Photo", "Assign Member ID", "Correct Member Record"],
     pending: 14,
   },
   {
@@ -1326,6 +1342,18 @@ export function canViewMembers(role: LoginRole, me: Member = ME): boolean {
 }
 
 /** The members a given role is allowed to see. */
+/**
+ * The viewer's own day-born group, whatever their role.
+ *
+ * Separate from `visibleMembers` on purpose: that one answers "what may this
+ * person see", and for an admin the answer is everyone. The day-born card asks
+ * a narrower question — "who is in my group" — and an admin opening it got all
+ * 328 members under a heading that promised their own group.
+ */
+export function dayBornMembers(me: Member, source: Member[]): Member[] {
+  return source.filter((m) => m.dayBorn === me.dayBorn);
+}
+
 export function visibleMembers(role: LoginRole, me: Member = ME, source: Member[] = members): Member[] {
   if (role === "admin" || role === "superAdmin") return source;
   if (!me.dayBornLeader) return [];

@@ -9,6 +9,7 @@ import { Assembly, assemblies, pentecostLogo } from "../data";
 import { ChevronRightIcon, MoonIcon, SunIcon } from "../icons";
 import { Btn, Card, Txt, shadow } from "../ui";
 import { PopIn } from "../motion";
+import { useDirectory } from "../directory";
 import { HeaderBlock, HeaderChip } from "../components/HeaderBlock";
 
 export default function AssemblyPicker({ onSelectAssembly }: { onSelectAssembly: (a: Assembly) => void }) {
@@ -16,6 +17,10 @@ export default function AssemblyPicker({ onSelectAssembly }: { onSelectAssembly:
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const cardWidth = (width - SCREEN_PAD * 2 - 12) / 2;
+  // Counted from the roll the server holds. The seeded figure, 248, had
+  // nothing to do with the 328 members actually loaded.
+  const { members: roll, loading } = useDirectory();
+  const countFor = (a: Assembly) => roll.filter((m) => m.assembly.trim().toLowerCase() === a.name.trim().toLowerCase()).length;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
@@ -149,7 +154,7 @@ export default function AssemblyPicker({ onSelectAssembly }: { onSelectAssembly:
                   {a.live ? (
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
                       <Txt variant="bodySemi" style={{ fontSize: 11.5, color: "#FBBF24" }}>
-                        {a.members} members
+                        {loading && roll.length === 0 ? "Loading members…" : `${countFor(a)} members`}
                       </Txt>
                       <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.22)" }}>
                         <ChevronRightIcon size={13} color="#fff" />

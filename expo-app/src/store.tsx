@@ -1,4 +1,11 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { AppState } from "react-native";
+
+import * as Api from "./api/resources";
+import { toEvent, toNotification, toServiceSlot } from "./api/adapters";
+import { ApiWeekday } from "./api/types";
+import { describeError } from "./session";
+import { useSession } from "./session";
 
 import {
   AppNotification,
@@ -92,6 +99,9 @@ interface ContentState {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   clearAllNotifications: () => void;
+  /** Set when a publish failed to reach the server; null once one succeeds. */
+  publishError: string | null;
+  clearPublishError: () => void;
 }
 
 const ContentContext = createContext<ContentState | null>(null);
@@ -99,6 +109,75 @@ const ContentContext = createContext<ContentState | null>(null);
 /** Ids only have to be unique within a session — the backend will own them later. */
 let seq = 0;
 const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${seq++}`;
+
+/**
+ * A weekday from whatever the admin typed.
+ *
+ * These fields are free text on the publish form, so "Sunday", "SUN", "sun" and
+ * "Sundays" all have to mean the same day. Matching only three-letter codes was
+ * why a service typed as "Sunday" never reached the server: it parsed to null,
+ * and the server rejects a null weekday.
+ *
+ * Returns null only when there is genuinely no day in the text, which the caller
+ * reports rather than sending.
+ */
+const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+export function toWeekday(label: string): ApiWeekday | null {
+  const t = (label || "").trim().toLowerCase();
+  if (!t) return null;
+  const i = WEEKDAYS.findIndex((d) => t.startsWith(d.slice(0, 3)));
+  return i >= 0 ? (i as ApiWeekday) : null;
+}
+
+/**
+ * Splits "Mon-Wed", "Monday – Wednesday" or plain "Sunday" into its two ends.
+ *
+ * Any of the dashes a phone keyboard produces counts as a range.
+ */
+export function toWeekdayRange(label: string): { start: ApiWeekday | null; end: ApiWeekday | null } {
+  // A dash, or the word "to" — not the letters t and o, which would split
+  // "Monday" on its own "o" and leave nothing a weekday could be read from.
+  const [from, to] = (label || "")
+    .split(/\s*(?:-|–|—|to)\s*/i)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const start = toWeekday(from ?? "");
+  return { start, end: to ? toWeekday(to) ?? start : start };
+}
+
+/**
+ * "7:00 PM", "7pm", "19:00" -> "19:00:00".
+ *
+ * The server stores a real time field, so a label a person typed has to become
+ * one. An unparseable time is reported to the admin rather than sent as
+ * midnight — a service claiming to start at 00:00 is worse than one rejected.
+ */
+export function toApiTime(label: string): string | null {
+  const m = (label || "").trim().match(/^(\d{1,2})[:.]?(\d{2})?\s*([AaPp])?\.?\s*[Mm]?\.?$/);
+  if (!m) return null;
+
+  let hour = Number(m[1]);
+  const mins = Number(m[2] ?? 0);
+  const half = m[3]?.toUpperCase();
+
+  if (half === "P" && hour < 12) hour += 12;
+  if (half === "A" && hour === 12) hour = 0;
+  if (hour > 23 || mins > 59) return null;
+
+  return `${String(hour).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00`;
+}
+
+/**
+ * The app writes dates the way a person reads them ("12 Nov"); the server wants
+ * ISO. A date with no year is taken as this year.
+ */
+function isoDate(label: string): string {
+  const parsed = new Date(`${label} ${new Date().getFullYear()}`);
+  return Number.isNaN(parsed.getTime())
+    ? new Date().toISOString().slice(0, 10)
+    : parsed.toISOString().slice(0, 10);
+}
 
 const EVENT_TINTS = ["amber", "blue", "violet", "green"] as const;
 
@@ -112,6 +191,21 @@ function clockLabel() {
 }
 
 export function ContentProvider({ children }: { children: React.ReactNode }) {
+  const { status: sessionStatus, member: signedInMember } = useSession();
+  /** Published content belongs to an assembly, and the server insists on knowing which. */
+  const assemblyId = signedInMember?.assembly?.id ?? null;
+
+  /**
+   * Why the last publish did not land.
+   *
+   * Swallowing this was how a schedule could be "published" to an admin's own
+   * screen and never reach the server — the request failed, the catch discarded
+   * it, and nobody found out until a member noticed their dashboard was empty.
+   */
+  const [publishError, setPublishError] = useState<string | null>(null);
+
+  // Seeds show something on first paint; the server's copy replaces them as
+  // soon as the member is signed in.
   const [schedule, setSchedule] = useState<ServiceSlot[]>(seedSchedule);
   const [events, setEvents] = useState<UpcomingEvent[]>(seedEvents);
   const [studies, setStudies] = useState<BibleStudy[]>(seedStudies);
@@ -129,20 +223,118 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
     setNotifications((list) => [{ ...n, id: nextId("n"), time: "Just now", unread: true }, ...list]);
   }, []);
 
+  /**
+   * Pulls published content from the server.
+   *
+   * Each read is allowed to fail on its own: a broken events endpoint should not
+   * empty the weekly schedule as well, so a failure leaves that one list alone
+   * rather than blanking the dashboard.
+   */
+  const clearPublishError = useCallback(() => setPublishError(null), []);
+
+  const refreshContent = useCallback(async () => {
+    const [apiSchedules, apiEvents, apiNotifications, apiReads, apiAssembly] = await Promise.all([
+      Api.fetchSchedules().catch(() => null),
+      Api.fetchEvents().catch(() => null),
+      Api.fetchNotifications().catch(() => null),
+      Api.fetchNotificationReads().catch(() => []),
+      assemblyId ? Api.fetchAssembly(assemblyId).catch(() => null) : Promise.resolve(null),
+    ]);
+
+    if (apiSchedules) setSchedule(apiSchedules.map(toServiceSlot));
+    if (apiEvents) setEvents(apiEvents.map(toEvent));
+
+    // The assembly's standing fence. An admin's edit in the hub was saved to
+    // the server but never read back, so every launch began from the seeded
+    // default — a point in Sunyani — and that was what the hub showed and what
+    // the map drew whenever no session was open.
+    if (apiAssembly?.geofence_center_lat && apiAssembly.geofence_center_lng && apiAssembly.geofence_radius_meters) {
+      setGeofence({
+        lat: apiAssembly.geofence_center_lat,
+        lng: apiAssembly.geofence_center_lng,
+        radius: String(apiAssembly.geofence_radius_meters),
+      });
+    }
+
+    if (apiNotifications) {
+      // "Read" is a row of its own, because one announcement goes to the whole
+      // assembly and each member reads it separately.
+      const readIds = new Set((apiReads ?? []).map((r) => r.notification));
+      setNotifications(apiNotifications.map((n) => toNotification(n, readIds)));
+    }
+  }, [assemblyId]);
+
+  /**
+   * Published content arrives while the app is already open.
+   *
+   * An admin adds a service during the week and every other phone has to find
+   * out — fetching only at sign-in meant a member who stayed signed in for the
+   * full 28 days would never see it. The schedule changes rarely, so this polls
+   * far less often than the attendance session does, and it re-reads whenever
+   * the app comes back to the foreground, which is when someone is most likely
+   * to be looking at it.
+   */
+  useEffect(() => {
+    if (sessionStatus !== "signedIn") return;
+
+    void refreshContent();
+    const timer = setInterval(() => void refreshContent(), 5 * 60 * 1000);
+
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshContent();
+    });
+
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [sessionStatus, refreshContent]);
+
   const addService = useCallback(
     (s: Omit<ServiceSlot, "id">) => {
+      // Shown immediately so the form feels answered, then reconciled with the
+      // server's own record — which carries the id every other device will use.
       setSchedule((list) => [...list, { ...s, id: nextId("s") }]);
+
+      const { start, end } = toWeekdayRange(s.day);
+      const time = toApiTime(s.time);
+
+      // The server refuses a null day or time, so say which one is wrong here
+      // rather than letting it come back as a field error nobody reads.
+      if (start === null || time === null) {
+        setPublishError(
+          start === null
+            ? `Could not read "${s.day}" as a day. Try "Sunday" or "Mon-Wed".`
+            : `Could not read "${s.time}" as a time. Try "7:00 PM" or "19:00".`,
+        );
+        return;
+      }
+
+      void Api.createSchedule({
+        assembly_id: assemblyId ?? undefined,
+        name: s.name,
+        location: s.venue,
+        time,
+        start_weekday: start,
+        end_weekday: end ?? start,
+      })
+        .then(() => {
+          setPublishError(null);
+          return refreshContent();
+        })
+        .catch((e) => setPublishError(describeError(e)));
       announce({
         kind: "event",
         title: `${s.name} added to the schedule`,
         body: `${s.day} at ${s.time}${s.venue ? ` — ${s.venue}` : ""}.`,
       });
     },
-    [announce],
+    [announce, refreshContent],
   );
 
-  const removeService = useCallback((id: string) => {
+  const removeService = useCallback(async (id: string) => {
     setSchedule((list) => list.filter((s) => s.id !== id));
+    await Api.deleteSchedule(id).catch(() => {});
   }, []);
 
   const addEvent = useCallback(
@@ -151,17 +343,27 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
         ...list,
         { ...e, id: nextId("ev"), tint: EVENT_TINTS[list.length % EVENT_TINTS.length] },
       ]);
+
+      void Api.createEvent({
+        assembly_id: assemblyId ?? undefined,
+        title: e.name,
+        description: e.tag,
+        event_date: isoDate(e.date),
+      })
+        .then(() => refreshContent())
+        .catch((err) => setPublishError(describeError(err)));
       announce({
         kind: "event",
         title: e.name,
         body: `${e.tag} event on ${e.date}. Tap for details.`,
       });
     },
-    [announce],
+    [announce, refreshContent],
   );
 
-  const removeEvent = useCallback((id: string) => {
+  const removeEvent = useCallback(async (id: string) => {
     setEvents((list) => list.filter((e) => e.id !== id));
+    await Api.deleteEvent(id).catch(() => {});
   }, []);
 
   const addStudy = useCallback(
@@ -306,13 +508,23 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
 
   const markNotificationRead = useCallback((id: string) => {
     setNotifications((list) => list.map((n) => (n.id === id ? { ...n, unread: false } : n)));
+    void Api.markNotificationRead(id).catch(() => {});
   }, []);
 
   const markAllNotificationsRead = useCallback(() => {
-    setNotifications((list) => list.map((n) => ({ ...n, unread: false })));
+    setNotifications((list) => {
+      // Only the ones actually unread need a row written.
+      for (const n of list) if (n.unread) void Api.markNotificationRead(n.id).catch(() => {});
+      return list.map((n) => ({ ...n, unread: false }));
+    });
   }, []);
 
-  /** Empties the member's list. Anything an admin publishes next lands on the empty list. */
+  /**
+   * Empties this member's list.
+   *
+   * Local only, deliberately: the announcement still exists for everyone else,
+   * and a member clearing their own view must not delete it for the assembly.
+   */
   const clearAllNotifications = useCallback(() => {
     setNotifications([]);
   }, []);
@@ -368,6 +580,8 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       markNotificationRead,
       markAllNotificationsRead,
       clearAllNotifications,
+      publishError,
+      clearPublishError,
     }),
     [
       schedule,
@@ -404,6 +618,8 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       markNotificationRead,
       markAllNotificationsRead,
       clearAllNotifications,
+      publishError,
+      clearPublishError,
     ],
   );
 

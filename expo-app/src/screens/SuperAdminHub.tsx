@@ -1,9 +1,24 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, TextInput, View, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
-import { AdminTier, Member, adminTierFilters, adminUsers, auditLogs, members, severityColors, tierColors } from "../data";
+import { AdminTier, AdminUser, AuditLog, Member, adminTierFilters, adminUsers, auditLogs, members, severityColors, tierColors } from "../data";
+
+/** "10 mins ago" reads better on an audit row than a timestamp. */
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "";
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+import { useDirectory } from "../directory";
+import * as Api from "../api/resources";
 import { exportTextFile, stampedName, toCsv } from "../files";
 import { useContent } from "../store";
 import { AlertTriangleIcon, ChevronRightIcon, ChurchIcon, LockIcon, SearchIcon, ShieldIcon, XIcon } from "../icons";
@@ -34,7 +49,7 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
       "text/csv",
       toCsv(
         ["When", "Admin", "Action", "Affected Record", "Severity"],
-        auditLogs.map((l) => [l.timestamp, l.adminName, l.action, l.affectedRecord, l.severity]),
+        logs.map((l) => [l.timestamp, l.adminName, l.action, l.affectedRecord, l.severity]),
       ),
     );
     setAuditStatus(result.message);
@@ -44,9 +59,64 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
   const [revokedIds, setRevokedIds] = useState<string[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
-  const { directory, removeMember } = useContent();
+  const { directory: seedDirectory, removeMember } = useContent();
+  const { members: roll, refresh: refreshRoll } = useDirectory();
 
-  const filtered = adminUsers
+  /**
+   * The real trail, written by the server as actions happen. The seeded list is
+   * only what shows before the first fetch returns — an audit screen that sits
+   * empty looks like nothing has ever been done.
+   */
+  const [liveLogs, setLiveLogs] = useState<AuditLog[]>([]);
+
+  useEffect(() => {
+    void Api.fetchActivity()
+      .then((rows) =>
+        setLiveLogs(
+          rows.map((r) => ({
+            id: r.id,
+            timestamp: relativeTime(r.created_at),
+            adminName: r.actor_name || "System",
+            action: r.action,
+            affectedRecord: r.affected_record,
+            severity: r.severity,
+          })),
+        ),
+      )
+      // Only a super admin may read it; anyone else simply sees the seeds.
+      .catch(() => {});
+  }, []);
+
+  const logs = liveLogs.length > 0 ? liveLogs : auditLogs;
+  const directory = roll.length > 0 ? roll : seedDirectory;
+
+  /**
+   * The admin roster is not its own table — an admin is a member whose role
+   * says so. Deriving it from the roll means granting and revoking is a single
+   * field change on one record, and the two views can never disagree.
+   */
+  const liveAdmins: AdminUser[] = useMemo(
+    () =>
+      roll
+        .filter((m) => m.role === "admin" || m.role === "superAdmin")
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          phone: m.phone,
+          assembly: m.assembly,
+          district: m.district,
+          tier: m.role === "superAdmin" ? "Super Admin" : "Assembly Admin",
+          photo: m.photo,
+          avatar: m.avatar,
+          avatarColor: m.avatarColor,
+          since: m.since,
+        })),
+    [roll],
+  );
+
+  const source = liveAdmins.length > 0 ? liveAdmins : adminUsers;
+
+  const filtered = source
     .filter((a) => {
       const matchFilter =
         activeFilter === "All Admins" ||
@@ -77,7 +147,7 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
         {/* Privilege summary */}
         <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 12 }}>
           {[
-            { label: "System Admins", value: `${adminUsers.length - revokedIds.length}`, sub: "Active Admins", Icon: ShieldIcon, color: isDark ? BRAND.blue : BRAND.navy },
+            { label: "System Admins", value: `${source.length - revokedIds.length}`, sub: "Active Admins", Icon: ShieldIcon, color: isDark ? BRAND.blue : BRAND.navy },
             { label: "Assemblies Covered", value: "4 of 4", sub: "Assemblies", Icon: ChurchIcon, color: isDark ? BRAND.greenLight : BRAND.greenDark },
             { label: "Security Status", value: "OK", sub: "Operational", Icon: LockIcon, color: isDark ? BRAND.greenLight : BRAND.greenDark },
           ].map((s, i) => (
@@ -194,7 +264,17 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
 
                   {admin.tier !== "Super Admin" ? (
                     <Btn
-                      onPress={() => setRevokedIds((ids) => [...ids, admin.id])}
+                      onPress={async () => {
+                        setRevokedIds((ids) => [...ids, admin.id]);
+                        try {
+                          await Api.setMemberRole(admin.id, "member");
+                          await refreshRoll();
+                        } catch {
+                          // Put them back rather than showing them as revoked
+                          // when the server still grants them access.
+                          setRevokedIds((ids) => ids.filter((id) => id !== admin.id));
+                        }
+                      }}
                       style={{
                         marginTop: 10,
                         paddingVertical: 8,
@@ -306,7 +386,7 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
           </View>
 
           <View style={{ borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: "hidden", borderWidth: 1, borderTopWidth: 0, borderColor: c.border }}>
-            {auditLogs.map((log, i) => {
+            {logs.map((log, i) => {
               const sc = severityColors[log.severity];
               return (
                 <View
@@ -316,7 +396,7 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
                     gap: 12,
                     paddingHorizontal: 12,
                     paddingVertical: 12,
-                    borderBottomWidth: i === auditLogs.length - 1 ? 0 : 1,
+                    borderBottomWidth: i === logs.length - 1 ? 0 : 1,
                     borderBottomColor: c.border,
                     backgroundColor: i % 2 === 0 ? c.card : isDark ? "#ffffff08" : "#00000005",
                   }}
@@ -552,7 +632,26 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
 
               {/* 5. Confirm */}
               <Btn
-                onPress={() => {
+                onPress={async () => {
+                  // Granting a tier is a change to the person's record on the
+                  // server — doing it locally would show an admin who cannot
+                  // actually do anything once they sign in.
+                  const target = directory.find(
+                    (m) => m.name.toLowerCase() === assignName.trim().toLowerCase(),
+                  );
+                  if (target) {
+                    try {
+                      await Api.setMemberRole(
+                        target.id,
+                        assignRole === "Super Admin" ? "super_admin" : "assembly_admin",
+                      );
+                      await refreshRoll();
+                    } catch {
+                      // Leave the modal open so the attempt is not lost silently.
+                      return;
+                    }
+                  }
+
                   setShowAssignModal(false);
                   setAssignName("");
                   setGrantMaster(false);

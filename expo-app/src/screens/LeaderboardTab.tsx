@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Animated, ScrollView, StyleProp, View, ViewStyle } from "react-native";
 
 import { BRAND, FONT, RADIUS, useTheme } from "../theme";
-import { ME, SessionUser, avatarColors, leaderboardData } from "../data";
+import { ME, SessionUser, avatarColors } from "../data";
+import { useDirectory, useMe } from "../directory";
 import { Avatar, Btn, Card, SectionHeading, Txt, shadow } from "../ui";
 import { MedalIcon } from "../icons";
 import { EASE_OUT, FadeIn, PopIn } from "../motion";
@@ -46,12 +47,41 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
   const { c, isDark } = useTheme();
   const [subTab, setSubTab] = useState<"consistent" | "encourage">("consistent");
 
-  const data = subTab === "consistent" ? leaderboardData.consistent : leaderboardData.needsEncouragement;
+  // The board is computed from the congregation's real attendance figures
+  // rather than a fixed list, so it reorders itself as the year goes on.
+  const { members, loading } = useDirectory();
+  const me = useMe();
 
-  // The signed-in member's own row carries their profile photograph. Matched on
-  // name because the seed leaderboard has no member ids; swap to an id compare
-  // once the board comes from the backend.
-  const isMe = (name: string) => name.trim().toLowerCase() === ME.name.trim().toLowerCase();
+  const board = useMemo(() => {
+    const scored = members
+      .map((m) => ({
+        id: m.id,
+        rank: 0,
+        name: m.name,
+        avatar: m.avatar,
+        photo: m.photo,
+        // `total` is the denominator the row renders a percentage from. The
+        // server reports a percentage directly, so 100 keeps the arithmetic
+        // honest instead of inventing a service count.
+        present: m.attendancePct,
+        total: 100,
+        streak: m.streak,
+      }))
+      .sort((a, b) => b.present - a.present || a.name.localeCompare(b.name));
+
+    const ranked = scored.map((row, i) => ({ ...row, rank: i + 1 }));
+
+    return {
+      consistent: ranked.slice(0, 12),
+      // Lowest scores first — the people worth a visit, not a podium.
+      needsEncouragement: [...ranked].reverse().slice(0, 12).map((r, i) => ({ ...r, rank: i + 1 })),
+    };
+  }, [members]);
+
+  const data = subTab === "consistent" ? board.consistent : board.needsEncouragement;
+
+  // Matched on id now that the board carries real records.
+  const isMe = (id: string) => Boolean(me && id === me.id);
 
   // Podium order: 2nd, 1st, 3rd
   const top3 = [data[1], data[0], data[2]];
@@ -106,7 +136,7 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
 
               <View style={shadow("md")}>
                 <Avatar
-                  photo={isMe(m.name) ? user.photo : undefined}
+                  photo={isMe(m.id) ? user.photo || m.photo : m.photo || undefined}
                   initials={m.avatar}
                   color={avatarColors[i % avatarColors.length]}
                   size={isFirst ? 62 : 52}
@@ -165,7 +195,7 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
                 </View>
 
                 <Avatar
-                  photo={isMe(m.name) ? user.photo : undefined}
+                  photo={isMe(m.id) ? user.photo || m.photo : m.photo || undefined}
                   initials={m.avatar}
                   color={avatarColors[i % avatarColors.length]}
                   size={42}

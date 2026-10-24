@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, LayoutChangeEvent, StyleProp, View, ViewStyle } from "react-native";
+import { Animated, Easing, LayoutChangeEvent, StyleProp, TextStyle, View, ViewStyle } from "react-native";
 
 /**
  * Shared motion vocabulary. Everything here drives `transform`/`opacity` so it
@@ -352,5 +352,318 @@ export function Burst({ size = 120, color = "#22C55E", rings = 3 }: { size?: num
         />
       ))}
     </View>
+  );
+}
+
+// ─── A hand that waves ────────────────────────────────────────────────────────
+
+/**
+ * Waves its child, the way a hand actually waves.
+ *
+ * The motion is a rotation, not a slide: a real wave pivots at the wrist, so the
+ * fingers travel a long arc while the base barely moves. `transformOrigin` puts
+ * the pivot at the bottom centre — rotating about the middle would make it look
+ * like a windscreen wiper.
+ *
+ * It runs a burst of cycles and then rests, rather than waving forever. A
+ * greeting that never stops stops reading as a greeting, and an endless
+ * animation keeps the JS thread awake for no reason.
+ *
+ * The defaults are measured from the reference clip: about two cycles a second,
+ * swinging roughly 24° either side of upright.
+ */
+export function WavingHand({
+  children,
+  /** Degrees either side of upright. */
+  angle = 24,
+  /** One cycle is out and back. */
+  cycles = 5,
+  /** Milliseconds for a single out-and-back. */
+  period = 500,
+  delay = 350,
+}: {
+  children: React.ReactNode;
+  angle?: number;
+  cycles?: number;
+  period?: number;
+  delay?: number;
+}) {
+  const swing = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const half = period / 2;
+    const out = Animated.timing(swing, {
+      toValue: 1,
+      duration: half,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    });
+    const back = Animated.timing(swing, {
+      toValue: -1,
+      duration: half,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    });
+    const settle = Animated.timing(swing, {
+      toValue: 0,
+      duration: half,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    });
+
+    const anim = Animated.sequence([
+      Animated.delay(delay),
+      ...Array.from({ length: cycles }, () => Animated.sequence([out, back])),
+      settle,
+    ]);
+
+    anim.start();
+    return () => anim.stop();
+  }, [swing, angle, cycles, period, delay]);
+
+  return (
+    <Animated.View
+      style={{
+        // The wrist, not the middle of the hand.
+        transformOrigin: "bottom center",
+        transform: [
+          {
+            rotate: swing.interpolate({
+              inputRange: [-1, 1],
+              outputRange: [`-${angle}deg`, `${angle}deg`],
+            }),
+          },
+        ],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+// ─── Typing ───────────────────────────────────────────────────────────────────
+
+/**
+ * Reveals text a character at a time, the way it would be typed.
+ *
+ * Returns the visible slice rather than rendering anything, so the caller keeps
+ * its own typography — a greeting set in the display face stays in that face.
+ *
+ * Driven by a timer, not `requestAnimationFrame`: frames stop arriving when the
+ * app is backgrounded, which would leave a half-typed word on screen until the
+ * member came back. A failsafe lands the full string regardless, so the text can
+ * never be stranded mid-word.
+ *
+ * The line is measured at its final width by the caller, so nothing reflows as
+ * characters appear — text that pushes the layout around while it types reads as
+ * a bug rather than an effect.
+ */
+export function useTypewriter(text: string, speed = 55, delay = 250) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    setCount(0);
+    if (!text) return;
+
+    let timer: ReturnType<typeof setInterval>;
+    const start = setTimeout(() => {
+      timer = setInterval(() => {
+        setCount((n) => {
+          if (n >= text.length) {
+            clearInterval(timer);
+            return n;
+          }
+          return n + 1;
+        });
+      }, speed);
+    }, delay);
+
+    // Whatever happens to the timers, the whole line is shown in the end.
+    const settle = setTimeout(() => setCount(text.length), delay + text.length * speed + 400);
+
+    return () => {
+      clearTimeout(start);
+      clearTimeout(settle);
+      clearInterval(timer);
+    };
+  }, [text, speed, delay]);
+
+  return { shown: text.slice(0, count), done: count >= text.length };
+}
+
+/**
+ * A cursor that blinks while the line is still being typed, then goes away.
+ *
+ * Left running after the text has landed it would pull the eye back to a
+ * finished sentence for the rest of the session.
+ */
+export function Caret({ visible, color = "#fff" }: { visible: boolean; color?: string }) {
+  const blink = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(blink, { toValue: 0.15, duration: 450, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(blink, { toValue: 1, duration: 450, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [blink, visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View
+      style={{ width: 2, height: 22, marginLeft: 3, borderRadius: 1, backgroundColor: color, opacity: blink }}
+    />
+  );
+}
+
+/**
+ * Text where every letter pops in on its own.
+ *
+ * Different from `useTypewriter`, which reveals a slice of a single string: here
+ * each character is its own animated node that fades, lifts and scales into
+ * place, so the word assembles letter by letter rather than being uncovered.
+ *
+ * Two things make it behave on a real screen:
+ *
+ * - **Every character is laid out from the start**, at opacity 0. Animating
+ *   opacity rather than adding nodes means the line never reflows and the text
+ *   below never jumps as the greeting lands.
+ * - **Spaces are rendered, never skipped.** A space with zero opacity still
+ *   occupies its width, so words keep their gaps while they arrive.
+ *
+ * Opacity and transform run on the native driver, so the stagger stays smooth
+ * even while the dashboard is still fetching.
+ */
+export function PoppingText({
+  text,
+  style,
+  /** Milliseconds between one letter and the next. */
+  stagger = 38,
+  delay = 200,
+  duration = 260,
+}: {
+  text: string;
+  style?: StyleProp<TextStyle>;
+  stagger?: number;
+  delay?: number;
+  duration?: number;
+}) {
+  // A newline starts a new row; everything else is a character in the current one.
+  const lines = text.split("\n");
+  let index = 0;
+
+  return (
+    <View>
+      {lines.map((line, lineNo) => {
+        const chars = [...line];
+        return (
+          <View key={lineNo} style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            {chars.map((ch, i) => (
+              <PoppingChar
+                key={`${lineNo}-${i}`}
+                char={ch}
+                style={style}
+                delay={delay + index++ * stagger}
+                duration={duration}
+              />
+            ))}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function PoppingChar({
+  char,
+  style,
+  delay,
+  duration,
+}: {
+  char: string;
+  style?: StyleProp<TextStyle>;
+  delay: number;
+  duration: number;
+}) {
+  const v = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const anim = Animated.timing(v, {
+      toValue: 1,
+      duration,
+      delay,
+      easing: EASE_BACK,
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [v, delay, duration]);
+
+  return (
+    <Animated.Text
+      style={[
+        style,
+        {
+          opacity: v,
+          transform: [
+            { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) },
+            { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) },
+          ],
+        },
+      ]}
+    >
+      {char === " " ? " " : char}
+    </Animated.Text>
+  );
+}
+
+/**
+ * A flame that flickers.
+ *
+ * A streak is the one number on the dashboard that rewards coming back, so its
+ * flame is the one thing worth keeping alive. The motion is deliberately small —
+ * a slow breath in scale with a slight lean — because a marker that jumps about
+ * next to a figure makes the figure harder to read, not easier.
+ *
+ * Both properties run on the native driver, so it costs nothing while the rest
+ * of the dashboard is still loading.
+ */
+export function Flicker({
+  children,
+  duration = 1300,
+}: {
+  children: React.ReactNode;
+  duration?: number;
+}) {
+  const v = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(v, { toValue: 1, duration, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(v, { toValue: 0, duration: duration * 0.8, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [v, duration]);
+
+  return (
+    <Animated.View
+      style={{
+        transformOrigin: "bottom center",
+        transform: [
+          { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] }) },
+          { rotate: v.interpolate({ inputRange: [0, 1], outputRange: ["-4deg", "4deg"] }) },
+        ],
+      }}
+    >
+      {children}
+    </Animated.View>
   );
 }

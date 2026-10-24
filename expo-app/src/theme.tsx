@@ -123,7 +123,7 @@ export const BRAND = {
 };
 
 interface ThemeContextValue {
-  mode: ThemeMode;
+  mode: ThemeMode
   isDark: boolean;
   c: Palette;
   toggle: () => void;

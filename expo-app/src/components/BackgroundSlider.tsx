@@ -10,7 +10,10 @@ export default function BackgroundSlider({
   photos,
   interval = 5000,
   fadeDuration = 1000,
-  scrim = ["rgba(10,16,32,0.55)", "rgba(10,16,32,0.92)"],
+  // Deep enough that type sits on a calm ground rather than fighting the
+  // photograph. The gradient still lets the image read at the top, where there
+  // is no text, and closes almost fully behind the form.
+  scrim = ["rgba(10,16,32,0.74)", "rgba(10,16,32,0.97)"],
   style,
 }: {
   photos: { source: ImageSourcePropType }[];

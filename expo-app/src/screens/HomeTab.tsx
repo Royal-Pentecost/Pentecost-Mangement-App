@@ -3,10 +3,14 @@ import { Image, Modal, Pressable, ScrollView, View } from "react-native";
 
 import { BRAND, RADIUS, TintName, useTheme } from "../theme";
 import { Assembly, LoginRole, ME, canViewMembers, visibleMembers } from "../data";
+import { useDirectory, useMe } from "../directory";
 import { ChevronRightIcon, FolderIcon, HomeIcon, PlayIcon, ShieldIcon, StopIcon, UsersIcon } from "../icons";
 import { Btn, Card, StatusDot, TintTile, Txt, tintFg } from "../ui";
 import { FadeIn, PopIn } from "../motion";
 import { useContent } from "../store";
+import { useTodayAttendance } from "../today";
+import { useSession } from "../session";
+import { addressOf } from "../naming";
 
 // ─── Admin session panel ──────────────────────────────────────────────────────
 
@@ -156,6 +160,7 @@ export default function HomeTab({
   onOpenMembers,
   onOpenMyDashboard,
   sessionStartTime,
+  attendanceError,
   membersPresent,
   firstTimers,
   onActivateSession,
@@ -171,6 +176,8 @@ export default function HomeTab({
   onOpenMembers: () => void;
   onOpenMyDashboard: () => void;
   sessionStartTime: string | null;
+  /** Why opening or closing the session failed — set by the server's reply. */
+  attendanceError: string | null;
   membersPresent: number;
   firstTimers: number;
   onActivateSession: () => void;
@@ -180,7 +187,30 @@ export default function HomeTab({
   bottomInset: number;
 }) {
   const { c, isDark } = useTheme();
-  const { directory } = useContent();
+  // The roll comes from the server; the store no longer owns it.
+  const { members: directory } = useDirectory();
+  const me = useMe();
+  const { member: signedIn, firstTime } = useSession();
+  const today = useTodayAttendance();
+
+  // Addressed the way the dashboard greets them — "Elder Ampofo", "Mrs Boakye",
+  // or a first name — rather than by the sample member every admin was called.
+  const greetingName = me
+    ? addressOf(me)
+    : (signedIn?.full_name ?? "").trim().split(/\s+/)[0] || "there";
+  const greeting = `${firstTime ? "Welcome" : "Welcome back"}, ${greetingName}`;
+
+  // Absent is only meaningful once a service has been held: on a Tuesday with
+  // no session, "328 absent" would read as the whole church staying away.
+  const heldService = today.sessions.length > 0;
+  const presentOnRoll = directory.filter((m) => today.presentIds.has(m.id)).length;
+  const glance: [string, string, TintName][] = !today.loaded
+    ? [["…", "Present", "green"], ["…", "Absent", "red"], ["…", "First Timers", "amber"]]
+    : [
+        [String(today.presentIds.size), "Present", "green"],
+        [heldService ? String(Math.max(0, directory.length - presentOnRoll)) : "—", "Absent", "red"],
+        [String(today.firstTimers), "First Timers", "amber"],
+      ];
 
   return (
     <ScrollView
@@ -206,6 +236,17 @@ export default function HomeTab({
           </View>
         </Card>
 
+        {/* A refused open or close used to fail in silence: the panel said
+            "Attendance Open" while the server had nothing open and no member
+            could sign. The server's own reason goes here instead. */}
+        {attendanceError ? (
+          <View style={{ padding: 12, borderRadius: RADIUS.md, backgroundColor: isDark ? "#DC262622" : "#FEE2E2" }}>
+            <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, color: isDark ? "#FCA5A5" : "#B91C1C" }}>
+              {attendanceError}
+            </Txt>
+          </View>
+        ) : null}
+
       
         {/* Today at a glance */}
         <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", marginTop: 12, marginBottom: 2, color: c.mutedForeground }}>
@@ -213,13 +254,7 @@ export default function HomeTab({
         </Txt>
 
         <View style={{ flexDirection: "row", gap: 10 }}>
-          {(
-            [
-              ["47", "Present", "green"],
-              ["12", "Absent", "red"],
-              ["5", "Visitors", "amber"],
-            ] as [string, string, TintName][]
-          ).map(([v, label, tint], i) => (
+          {glance.map(([v, label, tint], i) => (
             <PopIn key={i} delay={i * 90} style={{ flex: 1 }}>
             <Card style={{ paddingVertical: 16, alignItems: "center" }}>
               <Txt variant="displayExtraBold" style={{ fontSize: 22, color: tintFg(tint, isDark) }}>
@@ -233,6 +268,16 @@ export default function HomeTab({
           ))}
         </View>
 
+        {/* Says what the numbers are counting, so a zero reads as "not yet"
+            rather than "nobody came". */}
+        {today.loaded ? (
+          <Txt style={{ fontSize: 11.5, marginTop: -2, color: c.mutedForeground }}>
+            {heldService
+              ? `Signed in across ${today.sessions.length} session${today.sessions.length === 1 ? "" : "s"} today · updates every 30 seconds`
+              : "No attendance session has been opened today"}
+          </Txt>
+        ) : null}
+
         {/* Shortcuts */}
         <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", marginTop: 12, marginBottom: 2, color: c.mutedForeground }}>
           Quick Access
@@ -240,12 +285,12 @@ export default function HomeTab({
 
         {(
           [
-            { label: "My Dashboard", sub: `Welcome back, ${ME.name.split(" ")[0]}`, tint: "blue" as TintName, Icon: HomeIcon, fn: onOpenMyDashboard },
+            { label: "My Dashboard", sub: greeting, tint: "blue" as TintName, Icon: HomeIcon, fn: onOpenMyDashboard },
             ...(canViewMembers(loginRole)
               ? [
                   {
                     label: "Church Members",
-                    sub: `${visibleMembers(loginRole, ME, directory).length} registered members`,
+                    sub: `${visibleMembers(loginRole, me ?? ME, directory).length} registered members`,
                     tint: "green" as TintName,
                     Icon: UsersIcon,
                     fn: onOpenMembers,

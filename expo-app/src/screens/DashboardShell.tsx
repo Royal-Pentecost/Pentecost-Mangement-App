@@ -14,7 +14,6 @@ import {
   SessionUser,
   SettingsTopic,
   SubScreen,
-  elders,
   pentecostLogo,
   settingsPages,
   visibleMembers,
@@ -23,6 +22,7 @@ import { ArrowLeftIcon, BellIcon, CrownIcon, HomeIcon, MapPinIcon, MoonIcon, Set
 import { Btn, Txt } from "../ui";
 import { EASE_OUT, SwapFade } from "../motion";
 import { HeaderBlock, HeaderButton, HeaderTitle } from "../components/HeaderBlock";
+import { useDirectory } from "../directory";
 
 import HomeTab from "./HomeTab";
 import AttendanceTab from "./AttendanceTab";
@@ -52,6 +52,7 @@ const EYEBROW: Record<SubScreen, string> = {
   elders: "Directory",
   elderProfile: "Elder Profile",
   members: "Members",
+  dayBorn: "My Group",
   memberProfile: "Member Profile",
   myDashboard: "Personal",
   adminHub: "Admin Hub",
@@ -120,6 +121,8 @@ export default function DashboardShell(props: {
   onChangeTab: (t: MainTab) => void;
   onBack: () => void;
   scenario: AttendanceScenario;
+  /** Why the last attempt to open, close or sign attendance failed. */
+  attendanceError: string | null;
   sessionActive: boolean;
   sessionStartTime: string | null;
   membersPresent: number;
@@ -135,6 +138,8 @@ export default function DashboardShell(props: {
   onSelectElder: (e: Elder) => void;
   selectedMember: Member | null;
   onOpenMembers: () => void;
+  /** The dashboard's day-born card — the viewer's own group, not the roll. */
+  onOpenDayBorn: () => void;
   onSelectMember: (m: Member) => void;
   onOpenMyDashboard: () => void;
   onOpenAdminHub: () => void;
@@ -156,6 +161,9 @@ export default function DashboardShell(props: {
   const insets = useSafeAreaInsets();
 
   const { assembly, mainTab, subScreen, selectedElder, selectedMember, isAdmin, loginRole } = props;
+  // The leaders the server holds — every elder, deacon and deaconess on the
+  // roll. The seeded list in `data.ts` was nine invented people.
+  const { elders } = useDirectory();
 
   // Members have no assembly-admin view, so their Home tab *is* their personal
   // dashboard rather than a separate destination.
@@ -170,6 +178,8 @@ export default function DashboardShell(props: {
         ? selectedElder?.name.replace("Elder ", "") ?? ""
         : subScreen === "members"
           ? "All Members"
+          : subScreen === "dayBorn"
+            ? "My Day Born Members"
           : subScreen === "memberProfile"
             ? selectedMember?.name ?? ""
             : subScreen === "myDashboard"
@@ -262,6 +272,10 @@ export default function DashboardShell(props: {
 
         {subScreen === "members" ? <MembersDirectory onSelectMember={props.onSelectMember} loginRole={loginRole} bottomInset={contentBottomInset} /> : null}
 
+        {subScreen === "dayBorn" ? (
+          <MembersDirectory onSelectMember={props.onSelectMember} loginRole={loginRole} scope="dayBorn" bottomInset={contentBottomInset} />
+        ) : null}
+
         {subScreen === "memberProfile" && selectedMember ? (
           <MemberProfile member={selectedMember} elders={elders} bottomInset={contentBottomInset} />
         ) : null}
@@ -270,12 +284,13 @@ export default function DashboardShell(props: {
           <MyDashboard
             assembly={assembly}
             scenario={props.scenario}
+            attendanceError={props.attendanceError}
             sessionActive={props.sessionActive}
             attendanceMarked={props.attendanceMarked}
             onMarkAttendance={props.onMarkAttendance}
             elders={elders}
             onOpenElders={props.onOpenElders}
-            onOpenMembers={props.onOpenMembers}
+            onOpenMembers={props.onOpenDayBorn}
             loginRole={loginRole}
             user={props.sessionUser}
             bottomInset={contentBottomInset}
@@ -310,12 +325,13 @@ export default function DashboardShell(props: {
             <MyDashboard
               assembly={assembly}
               scenario={props.scenario}
+              attendanceError={props.attendanceError}
               sessionActive={props.sessionActive}
               attendanceMarked={props.attendanceMarked}
               onMarkAttendance={props.onMarkAttendance}
               elders={elders}
               onOpenElders={props.onOpenElders}
-              onOpenMembers={props.onOpenMembers}
+              onOpenMembers={props.onOpenDayBorn}
               loginRole={loginRole}
               user={props.sessionUser}
               bottomInset={contentBottomInset}
@@ -330,6 +346,7 @@ export default function DashboardShell(props: {
               onOpenMembers={props.onOpenMembers}
               onOpenMyDashboard={props.onOpenMyDashboard}
               sessionStartTime={props.sessionStartTime}
+              attendanceError={props.attendanceError}
               membersPresent={props.membersPresent}
               firstTimers={props.firstTimers}
               onActivateSession={props.onActivateSession}

@@ -3,7 +3,7 @@ import { Image, Linking, Modal, ScrollView, View, useWindowDimensions } from "re
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BRAND, RADIUS, SCREEN_PAD, TintName, useTheme } from "../theme";
+import { BRAND, FONT, RADIUS, SCREEN_PAD, TintName, ms, useTheme } from "../theme";
 import {
   Assembly,
   AttendanceScenario,
@@ -44,7 +44,11 @@ import {
   PinIcon,
 } from "../icons";
 import { Avatar, Btn, Card, ProgressBar, SectionHeading, StatusDot, TintTile, Txt, shadow, tintFg } from "../ui";
-import { Collapsible, FadeIn, PopIn, useCountUp } from "../motion";
+import { Collapsible, FadeIn, Flicker, PopIn, PoppingText, useCountUp } from "../motion";
+import { useDirectory, useMe } from "../directory";
+import { useLocation } from "../location";
+import { addressOfMember } from "../naming";
+import { useSession } from "../session";
 
 const CARD_GAP = 12;
 
@@ -477,12 +481,25 @@ function PhotoCarousel() {
   );
 }
 
+/**
+ * "1 presiding elder, 15 elders, 4 deacons, 8 deaconesses" would not fit on the
+ * card, so it gives the total and the two largest offices — enough for a member
+ * to see this is the whole leadership and not just the elders.
+ */
+function leaderSummary(leaders: Elder[]): string {
+  if (leaders.length === 0) return "No leaders on file";
+  const deacons = leaders.filter((l) => l.office === "Deacon" || l.office === "Deaconess").length;
+  const elderCount = leaders.length - deacons;
+  return `${leaders.length} leaders · ${elderCount} elder${elderCount === 1 ? "" : "s"}, ${deacons} deacon${deacons === 1 ? "" : "s"} & deaconess${deacons === 1 ? "" : "es"}`;
+}
+
 export default function MyDashboard({
   assembly,
   scenario,
   sessionActive,
   attendanceMarked,
   onMarkAttendance,
+  attendanceError,
   elders,
   onOpenElders,
   onOpenMembers,
@@ -495,6 +512,7 @@ export default function MyDashboard({
   sessionActive: boolean;
   attendanceMarked: boolean;
   onMarkAttendance: () => void;
+  attendanceError: string | null;
   elders: Elder[];
   onOpenElders: () => void;
   onOpenMembers: () => void;
@@ -534,16 +552,38 @@ export default function MyDashboard({
     setVersePopupOpen(false);
   };
 
+  // The signed-in member, from the server. Until their record arrives the
+  // figures stay at zero rather than borrowing the sample member's.
+  const liveMe = useMe();
+  const { members: roll, loading: rollLoading } = useDirectory();
+  const { blockedReason, distance, fix, certainty, phase } = useLocation();
+  // Permission off or GPS switched off — nothing the member can fix by walking.
+  const locationOff = phase === "denied" || phase === "disabled";
+  const { user: sessionProfile, member: verifiedMember, firstTime } = useSession();
+
   // Headline figures tick up rather than snapping into place.
-  const attendanceCount = useCountUp(ME.attendancePct);
-  const streakCount = useCountUp(ME.streak, 700, 260);
+  const attendanceCount = useCountUp(liveMe?.attendancePct ?? 0);
+  const streakCount = useCountUp(liveMe?.streak ?? 0, 700, 260);
 
   const { width } = useWindowDimensions();
   const serviceTile = (width - SCREEN_PAD * 2 - 12) / 2;
 
-  const me = ME;
+  // Name and member id come from the verified session even before the full
+  // directory has loaded, so the greeting is never somebody else's.
+  const me: typeof ME = liveMe ?? {
+    ...ME,
+    name: sessionProfile?.name ?? ME.name,
+    assembly: verifiedMember?.assembly?.name ?? ME.assembly,
+    memberId: verifiedMember?.member_id ?? ME.memberId,
+    attendancePct: 0,
+    streak: 0,
+    attendanceLogs: [],
+  };
   const myElder = elders.find((e) => e.id === me.elderId);
+  // Everyone born on the same weekday as this member, them included.
+  const groupSize = roll.filter((m) => m.dayBorn === me.dayBorn).length;
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+
   const canMark = scenario === "inside-active" && !attendanceMarked;
 
   return (
@@ -591,10 +631,15 @@ export default function MyDashboard({
         <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>
           {today}
         </Txt>
-        <Txt variant="displayExtraBold" style={{ fontSize: 24, marginTop: 6, color: "#fff", lineHeight: 30 }}>
-          Welcome back,{"\n"}
-          {me.name.split(" ")[0]}
-        </Txt>
+        {/* The greeting assembles a letter at a time. Every character is laid
+            out from the start at zero opacity, so nothing below it shifts as
+            the line lands. */}
+        <View style={{ marginTop: 6 }}>
+          <PoppingText
+            text={`${firstTime ? "Welcome" : "Welcome back"},\n${addressOfMember(liveMe) || me.name.split(" ")[0]}`}
+            style={{ fontFamily: FONT.extrabold, fontSize: ms(24), lineHeight: ms(30), color: "#fff" }}
+          />
+        </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}>
           <View style={{ width: 22, height: 22, borderRadius: 7, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" }}>
             <Image source={pentecostLogo} style={{ width: 17, height: 17 }} resizeMode="contain" />
@@ -625,7 +670,9 @@ export default function MyDashboard({
           </View>
           <View style={{ alignItems: "flex-end" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-              <FlameIcon size={16} color={c.accent} />
+              <Flicker>
+                <FlameIcon size={16} color={c.accent} />
+              </Flicker>
               <Txt variant="displayBold" style={{ fontSize: 16, color: c.accent }}>
                 {streakCount} weeks
               </Txt>
@@ -661,7 +708,11 @@ export default function MyDashboard({
               : scenario === "inside-active"
                 ? "You are inside the geofence and ready to mark attendance"
                 : scenario === "outside-active"
-                  ? "Attendance is open, but you are outside the geofence"
+                  ? locationOff || !fix
+                    ? "Attendance is open — the app needs your location to sign you in"
+                    : certainty === "poor"
+                      ? "Attendance is open, but your GPS signal is too weak"
+                      : "Attendance is open, but you are outside the geofence"
                   : "Session is open at your assembly"}
           </Txt>
         </View>
@@ -699,11 +750,37 @@ export default function MyDashboard({
               {!sessionActive
                 ? "Attendance Session Not Active"
                 : scenario === "outside-active"
-                  ? "You are Outside the Geofence"
+                  ? locationOff
+                    ? "Turn On Location to Mark"
+                    : !fix
+                      ? "Finding Your Location…"
+                      : certainty === "poor"
+                        ? "GPS Too Weak to Confirm"
+                        : "You are Outside the Geofence"
                   : "Mark My Attendance Now"}
             </Txt>
           </Btn>
         )}
+
+        {/* The reason the button is dark, in numbers a member can act on —
+            "34m away, fix ±15m" tells them to walk closer; "±150m" tells them
+            to step outside for a better signal. */}
+        {sessionActive && !attendanceMarked && !canMark && blockedReason ? (
+          <Txt style={{ fontSize: 12, lineHeight: 17, marginTop: 8, textAlign: "center", color: c.mutedForeground }}>
+            {blockedReason}
+            {distance !== null && fix ? ` You are about ${Math.round(distance)}m from the centre (GPS ±${Math.round(fix.accuracy)}m).` : ""}
+          </Txt>
+        ) : null}
+
+        {/* The server's own answer when a sign-in is refused. This was never
+            shown, so a failed tap looked exactly like nothing happening. */}
+        {attendanceError ? (
+          <View style={{ marginTop: 8, padding: 10, borderRadius: RADIUS.sm, backgroundColor: isDark ? "#DC262622" : "#FEE2E2" }}>
+            <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, color: isDark ? "#FCA5A5" : "#B91C1C" }}>
+              {attendanceError}
+            </Txt>
+          </View>
+        ) : null}
       </Card>
 
       {/* Weekly schedule */}
@@ -789,7 +866,8 @@ export default function MyDashboard({
                 ["District Pastor", assembly.pastor],
                 ["Presiding Elder", assembly.elder],
                 ["Founded", assembly.founded],
-                ["Members", String(assembly.members)],
+                // The live roll, not the seeded 248.
+                ["Members", String(roll.filter((m) => m.assembly.trim().toLowerCase() === assembly.name.trim().toLowerCase()).length || "—")],
               ].map(([label, value], i) => (
                 <View key={i} style={{ width: "48%", flexGrow: 1, borderRadius: RADIUS.md, padding: 12, backgroundColor: c.muted }}>
                   <Txt style={{ fontSize: 11.5, color: c.mutedForeground }}>{label}</Txt>
@@ -827,7 +905,9 @@ export default function MyDashboard({
               Church Leaders
             </Txt>
             <Txt variant="bodyMedium" style={{ fontSize: 12.5, marginTop: 2, color: c.mutedForeground }}>
-              {elders.length} leaders · Ayigya District
+              {rollLoading && elders.length === 0
+                ? "Loading leaders…"
+                : `${leaderSummary(elders)} · Ayigya District`}
             </Txt>
           </View>
           <View style={{ width: 34, height: 34, borderRadius: RADIUS.sm, alignItems: "center", justifyContent: "center", backgroundColor: c.primary }}>
@@ -850,7 +930,8 @@ export default function MyDashboard({
                 My Day Born Members
               </Txt>
               <Txt variant="bodyMedium" style={{ fontSize: 12.5, marginTop: 2, color: c.mutedForeground }}>
-                {me.dayBorn}-born group · you lead this group
+                {me.dayBorn}-born group · {groupSize} member{groupSize === 1 ? "" : "s"}
+                {me.dayBornLeader ? " · you lead this group" : ""}
               </Txt>
             </View>
             <ChevronRightIcon size={16} color={c.mutedForeground} />
