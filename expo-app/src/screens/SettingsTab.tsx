@@ -56,6 +56,7 @@ export default function SettingsTab({
   user,
   onChangePhoto,
   photoStatus,
+  pushNote,
   onOpenTopic,
   onLogout,
   bottomInset,
@@ -64,6 +65,8 @@ export default function SettingsTab({
   onChangePhoto: (uri: string) => void;
   /** How the last photo change went — shown under the button, never swallowed. */
   photoStatus: { state: "uploading" | "done" | "failed"; message: string } | null;
+  /** Why this phone gets no push notifications; null when it does. */
+  pushNote: string | null;
   onOpenTopic: (topic: SettingsTopic) => void;
   onLogout: () => void;
   bottomInset: number;
@@ -170,6 +173,17 @@ export default function SettingsTab({
           </Txt>
         ) : null}
       </Card>
+
+      {/* Push notifications — said plainly when this phone cannot get them, so
+          a member who never hears "attendance is open" knows why. */}
+      {pushNote ? (
+        <Card style={{ marginTop: 12, padding: 12, flexDirection: "row", gap: 11, alignItems: "center" }}>
+          <BellIcon size={18} color={c.mutedForeground} />
+          <Txt style={{ flex: 1, fontSize: 12.5, lineHeight: 18, color: c.mutedForeground }}>
+            Phone notifications are off on this device. {pushNote}
+          </Txt>
+        </Card>
+      ) : null}
 
       {/* Appearance */}
       <SectionHeading label="Appearance" />

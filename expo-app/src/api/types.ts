@@ -28,7 +28,8 @@ export type ApiNotificationType =
   | "bible_study"
   | "streak"
   | "elder_availability"
-  | "system";
+  | "system"
+  | "daily_verse";
 
 /** Monday = 0 … Sunday = 6, following Python's weekday numbering — not JavaScript's. */
 export type ApiWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;

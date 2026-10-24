@@ -149,6 +149,8 @@ export default function DashboardShell(props: {
   sessionUser: SessionUser;
   onChangePhoto: (uri: string) => void;
   photoStatus: { state: "uploading" | "done" | "failed"; message: string } | null;
+  /** Why this phone cannot receive push notifications, or null when it can. */
+  pushNote: string | null;
   settingsTopic: SettingsTopic;
   onOpenSettingsTopic: (t: SettingsTopic) => void;
   onLogout: () => void;
@@ -376,6 +378,7 @@ export default function DashboardShell(props: {
             user={props.sessionUser}
             onChangePhoto={props.onChangePhoto}
             photoStatus={props.photoStatus}
+            pushNote={props.pushNote}
             onOpenTopic={props.onOpenSettingsTopic}
             onLogout={props.onLogout}
             bottomInset={contentBottomInset}

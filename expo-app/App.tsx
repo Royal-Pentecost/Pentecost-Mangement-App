@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { BackHandler, View } from "react-native";
+import { BackHandler, Platform, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
@@ -21,7 +21,8 @@ import { ContentProvider, useContent } from "./src/store";
 import { LocationProvider, useLocation } from "./src/location";
 import { SessionProvider, useSession } from "./src/session";
 import { TodayAttendanceProvider, useTodayAttendance } from "./src/today";
-import { useOnPullToRefresh } from "./src/refresh";
+import { useOnPullToRefresh, useRefreshAll } from "./src/refresh";
+import { Notifications, notificationKind, registerForPush, unregisterPush } from "./src/push";
 import { DirectoryProvider, useDirectory } from "./src/directory";
 import * as Api from "./src/api/resources";
 import { describeError } from "./src/session";
@@ -330,10 +331,91 @@ function ChurchApp() {
     return () => sub.remove();
   }, [appPhase, booting, screen, canGoBack, history.length, loginRole]);
 
+  // The server can end a session on its own — a revoked or expired token comes
+  // back 401 and the session signs out. The screens did not follow: the
+  // dashboard stayed up with no member behind it and crashed on `user.photo`,
+  // leaving a blank page. Go back to the login screen instead.
+  useEffect(() => {
+    if (sessionStatus !== "signedOut" || appPhase === "login" || appPhase === "otp") return;
+    setAppPhase("login");
+    setScreen("home");
+    setSelectedAssembly(null);
+    resetHistory();
+    setSelectedElder(null);
+    setSelectedMember(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStatus, appPhase]);
+
+  // ── Push notifications ─────────────────────────────────────────────────────
+  const refreshAll = useRefreshAll();
+  const [pushNote, setPushNote] = useState<string | null>(null);
+
+  // Register this phone once the member is in. Repeats harmlessly on every
+  // launch, which also moves the phone to whoever signed in on it last.
+  useEffect(() => {
+    if (appPhase !== "app" || sessionStatus !== "signedIn") return;
+    let cancelled = false;
+    void registerForPush().then((r) => {
+      if (cancelled) return;
+      setPushNote(r.ok ? null : r.reason);
+      if (!r.ok && __DEV__) console.warn("[push]", r.reason);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [appPhase, sessionStatus]);
+
+  /** Where a tapped notification should land. */
+  const openFromNotification = (kind: string | null) => {
+    // An admin who has not picked an assembly yet is on the picker; take
+    // them into the live one so the screen the notification is about exists.
+    if (!selectedAssembly) {
+      setSelectedAssembly(assemblies.find((a) => a.live) ?? assemblies[0]);
+      setScreen("dashboard");
+    }
+    if (kind === "session_open") go({ tab: "attendance", sub: "none" });
+    else if (kind === "event" || kind === "daily_verse") {
+      go({ tab: "home", sub: loginRole === "member" ? "none" : "myDashboard" });
+    }
+  };
+
+  useEffect(() => {
+    // Phones only: the web preview has no notification tray to listen to.
+    if (appPhase !== "app" || Platform.OS === "web") return;
+    // With the app open, a notification means the server has news — fetch it,
+    // so "attendance is open" turns the button on without a pull.
+    const received = Notifications.addNotificationReceivedListener(() => {
+      void refreshAll();
+      setSessionCheck((n) => n + 1);
+    });
+    // Tapped, from the tray or the lock screen.
+    const tapped = Notifications.addNotificationResponseReceivedListener((response) => {
+      void refreshAll();
+      setSessionCheck((n) => n + 1);
+      openFromNotification(notificationKind(response.notification));
+    });
+    // The tap that launched the app from closed arrives before the listeners
+    // exist, so read it once here.
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        openFromNotification(notificationKind(response.notification));
+      }
+    });
+    return () => {
+      received.remove();
+      tapped.remove();
+    };
+    // Re-subscribing on every navigation would replay the launch tap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appPhase]);
+
   const handleLogout = () => {
-    // Drop the token from the keystore too, or the next launch would restore a
-    // session the member thought they had ended.
-    void endSession();
+    // Unregister this phone from push first, while there is still a session to
+    // tell the server with — otherwise the next person to sign in here would
+    // get the last person's notifications. Then drop the token from the
+    // keystore, or the next launch would restore a session the member thought
+    // they had ended.
+    void unregisterPush().finally(() => void endSession());
 
     setAppPhase("login");
     setLoginPhone("");
@@ -450,7 +532,7 @@ function ChurchApp() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <StatusBar style="light" />
 
-      {screen === "home" || !selectedAssembly ? (
+      {!sessionUser ? null : screen === "home" || !selectedAssembly ? (
         <AssemblyPicker onSelectAssembly={handleSelectAssembly} />
       ) : (
         <DashboardShell
@@ -488,7 +570,7 @@ function ChurchApp() {
           onOpenManualAttendance={() => go({ sub: "manualAttendance" })}
           onOpenPublish={() => go({ sub: "publish" })}
           onOpenNotifications={() => go({ sub: "notifications" })}
-          sessionUser={sessionUser!}
+          sessionUser={sessionUser}
           onChangePhoto={async (uri) => {
             // Show it straight away so the tap feels answered, then upload. If
             // the upload fails the preview is dropped rather than left looking
@@ -507,6 +589,7 @@ function ChurchApp() {
             }
           }}
           photoStatus={photoStatus}
+          pushNote={pushNote}
           settingsTopic={settingsTopic}
           onOpenSettingsTopic={(t) => {
             setSettingsTopic(t);

@@ -419,3 +419,13 @@ export const createMilestone = (body: Partial<ApiSpiritualMilestone>) =>
  * could write to would prove nothing.
  */
 export const fetchActivity = () => listAll<ApiActivityLog>("/api/v1/core/activity/");
+
+// ─── Push notifications ──────────────────────────────────────────────────────
+
+/** Tells the server this phone can be woken for the signed-in member. */
+export const registerPushDevice = (token: string, platform: "android" | "ios") =>
+  request("/api/v1/core/push-devices/", { method: "POST", body: { token, platform } });
+
+/** Stops pushes to this phone — sent on sign-out, while the session still exists. */
+export const removePushDevice = (token: string) =>
+  request("/api/v1/core/push-devices/remove/", { method: "POST", body: { token } });

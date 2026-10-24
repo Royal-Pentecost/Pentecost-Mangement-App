@@ -200,3 +200,19 @@ export async function signOut(): Promise<void> {
 export function fetchMember(id: string): Promise<ApiMember> {
   return request<ApiMember>(`/api/v1/accounts/members/${encodeURIComponent(id)}/`);
 }
+
+const PUSH_KEY = "pentecost.push.token";
+
+/**
+ * The push token this phone registered, kept so sign-out can unregister it —
+ * by then the session is gone, and with it any way to ask the server which
+ * token was this phone's.
+ */
+export async function storedPushToken(): Promise<string | null> {
+  return storage.get(PUSH_KEY);
+}
+
+export async function rememberPushToken(token: string | null): Promise<void> {
+  if (token) await storage.set(PUSH_KEY, token);
+  else await storage.clear(PUSH_KEY);
+}

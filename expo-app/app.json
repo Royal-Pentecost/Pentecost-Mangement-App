@@ -54,7 +54,14 @@
       "@maplibre/maplibre-react-native",
       "expo-sharing",
       "expo-status-bar",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#1E3A8A"
+        }
+      ]
     ]
   }
 }
