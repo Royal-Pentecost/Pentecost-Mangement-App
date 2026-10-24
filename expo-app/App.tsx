@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { BackHandler, Platform, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { BackHandler, Platform, ToastAndroid, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
@@ -107,7 +107,11 @@ function ChurchApp() {
     });
 
   const resetHistory = () => setHistory([{ tab: "home", sub: "none" }]);
-  const canGoBack = history.length > 1 || loginRole !== "member";
+  // The header arrow belongs to pages opened *from* somewhere. A member's tabs
+  // are top-level destinations, so their header always shows the logo there.
+  const canGoBack = loginRole !== "member" || subScreen !== "none";
+  // When the last back press at the root happened, for "press again to exit".
+  const lastRootBack = useRef(0);
   const [selectedElder, setSelectedElder] = useState<Elder | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
@@ -295,18 +299,30 @@ function ChurchApp() {
     };
   }, [appPhase, openSessionAt, closeSession, sessionCheck]);
 
-  const handleBack = () => {
-    if (history.length > 1) {
-      // Checked again against the live value: `history` here can be a render
-      // behind, and two quick presses of the phone's back button both passed
-      // the outer check, popped twice, and emptied the trail — the next render
-      // then read `.tab` of nothing and the app crashed.
-      setHistory((h) => (h.length > 1 ? h.slice(0, -1) : h));
-    } else if (loginRole !== "member") {
-      // Nothing left in the trail — admins fall back to the assembly picker.
-      // Members have no picker, so their root is the end of the line.
-      setScreen("home");
+  /**
+   * Back, the way modern apps do it: close the page that is open, then return
+   * to the Home tab from any other tab, and only then leave — admins to the
+   * assembly picker, members out of the app.
+   * Returns false when the press should go to the OS (closing the app).
+   */
+  const handleBack = (): boolean => {
+    if (subScreen !== "none") {
+      // Checked against the live value: two quick presses must not empty the trail.
+      setHistory((h) => {
+        if (h.length > 1) return h.slice(0, -1);
+        return [{ tab: h[0]?.tab ?? "home", sub: "none" }];
+      });
+      return true;
     }
+    if (mainTab !== "home") {
+      resetHistory();
+      return true;
+    }
+    if (loginRole !== "member") {
+      setScreen("home");
+      return true;
+    }
+    return false;
   };
 
   // Android's hardware/gesture back must walk the same trail as the header
@@ -323,14 +339,18 @@ function ChurchApp() {
       if (booting || appPhase === "welcome") return true;
       if (appPhase !== "app") return false;
 
-      if (screen === "dashboard" && canGoBack) {
-        handleBack();
-        return true;
-      }
-      return false;
+      if (screen !== "dashboard") return false;
+      if (handleBack()) return true;
+      // At a member's Home: a second press within two seconds closes the app,
+      // so one stray swipe never throws them out.
+      const now = Date.now();
+      if (now - lastRootBack.current < 2000) return false;
+      lastRootBack.current = now;
+      if (Platform.OS === "android") ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+      return true;
     });
     return () => sub.remove();
-  }, [appPhase, booting, screen, canGoBack, history.length, loginRole]);
+  }, [appPhase, booting, screen, subScreen, mainTab, history.length, loginRole]);
 
   // The server can end a session on its own — a revoked or expired token comes
   // back 401 and the session signs out. The screens did not follow: the
