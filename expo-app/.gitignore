@@ -40,3 +40,7 @@ yarn-error.*
 /ios
 /android
 build-output/
+
+# Firebase config for push notifications. Holds the project's API key and the
+# repository is public, so it stays on the machine that builds the APK.
+google-services.json
