@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Image, Modal, Pressable, ScrollView, View } from "react-native";
 
 import { BRAND, RADIUS, TintName, useTheme } from "../theme";
-import { Assembly, LoginRole, ME, canViewMembers, visibleMembers } from "../data";
+import { Assembly, LoginRole, ME, canViewMembers, othersOnly, visibleMembers } from "../data";
 import { useDirectory, useMe } from "../directory";
 import { ChevronRightIcon, FolderIcon, HomeIcon, PlayIcon, ShieldIcon, StopIcon, UsersIcon } from "../icons";
 import { Btn, Card, StatusDot, TintTile, Txt, tintFg } from "../ui";
@@ -293,7 +293,7 @@ export default function HomeTab({
               ? [
                   {
                     label: "Church Members",
-                    sub: `${visibleMembers(loginRole, me ?? ME, directory).length} registered members`,
+                    sub: `${othersOnly(visibleMembers(loginRole, me ?? ME, directory), me?.id).length} registered members`,
                     tint: "green" as TintName,
                     Icon: UsersIcon,
                     fn: onOpenMembers,

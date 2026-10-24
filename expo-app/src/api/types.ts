@@ -77,6 +77,10 @@ export interface ApiMember {
   date_of_birth?: string | null;
   /** "M" | "F", or "" when the roll does not record it. */
   sex?: string;
+  /** Where they live, as the church records it — "Ayigya Zongo", "KNUST". */
+  residence?: string;
+  /** Ministries and departments: ["Royal Youth Choir", "Royal Drama Troupe"]. Admin-set. */
+  church_roles?: string[];
   /**
    * The member's login, `0XXXXXXXXX`, or `""` when they have none — which is
    * most of the roll. Stored on the User rather than the member, but read and

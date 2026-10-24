@@ -109,7 +109,9 @@ export function toMember(m: ApiMember): Member {
     assembly: m.assembly?.name ?? "",
     assemblyId: m.assembly?.id ?? "",
     district: "",
-    since: yearOf(m.created_at),
+    // Not `created_at` — that is the day the roll was imported, which made
+    // every member "Member since 2026". The church gave no joining date.
+    since: "",
     photo: m.profile_photo ?? "",
     // Lives on the login, not the member row — empty for the two thirds of the
     // roll who have no number on file yet, which is a fact worth showing rather
@@ -119,7 +121,9 @@ export function toMember(m: ApiMember): Member {
     avatar: initialsOf(m.full_name),
     avatarColor: colourFor(m.member_id || m.id),
     category: "Baptized",
-    departments: [],
+    // The ministries and departments from the church's roll.
+    departments: m.church_roles ?? [],
+    residence: m.residence ?? "",
     // Filled in by `withStats` once the figures have been fetched. Zero here is
     // honest: the app has not been told the score yet.
     attendancePct: 0,
@@ -205,6 +209,8 @@ export function toElder(e: ApiElder): Elder {
   const name = e.member?.full_name ?? e.title ?? "Leader";
   return {
     id: e.id,
+    // The member behind the office — how a leader recognises their own entry.
+    memberRef: e.member?.id,
     name,
     title: e.title || "Elder",
     office: toLeaderOffice(e),

@@ -37,6 +37,8 @@ export type LeaderOffice = "Elder" | "Deacon" | "Deaconess";
 
 export interface Elder {
   id: string;
+  /** The member who holds this office, when the server says. */
+  memberRef?: string;
   name: string;
   /** Full title as it reads on a card, e.g. "Presiding Elder". */
   title: string;
@@ -80,6 +82,8 @@ export interface Member {
   avatarColor: string;
   category: "Baptized" | "Department Leader";
   departments: string[];
+  /** Where they live — "Ayigya Zongo", "KNUST". */
+  residence?: string;
   attendancePct: number;
   /** Consecutive Sunday services attended. */
   streak: number;
@@ -1371,6 +1375,22 @@ export function canViewMembers(role: LoginRole, me: Member = ME): boolean {
  */
 export function dayBornMembers(me: Member, source: Member[]): Member[] {
   return source.filter((m) => m.dayBorn === me.dayBorn);
+}
+
+/**
+ * Everyone but the person looking.
+ *
+ * A member browsing the church — the directory, their day-born group, the
+ * leaders — is looking for other people. Their own entry in those lists was
+ * noise, and the counts beside the lists should agree with what opens.
+ */
+export function othersOnly<T extends { id: string }>(list: T[], meId: string | null | undefined): T[] {
+  return meId ? list.filter((m) => m.id !== meId) : list;
+}
+
+/** Leaders other than the viewer, matched on the member who holds the office. */
+export function otherLeaders(leaders: Elder[], meId: string | null | undefined): Elder[] {
+  return meId ? leaders.filter((e) => e.memberRef !== meId) : leaders;
 }
 
 export function visibleMembers(role: LoginRole, me: Member = ME, source: Member[] = members): Member[] {

@@ -85,6 +85,8 @@ function rankLeaders(apiElders: ApiElder[], members: Member[]): Elder[] {
         phone: leader.phone || person.phone,
         assembly: leader.assembly || person.assembly,
         assemblyId: leader.assemblyId || person.assemblyId,
+        // The ministries the roll lists for the member who holds the office.
+        roles: leader.roles.length ? leader.roles : person.departments,
         avatarColor: person.avatarColor,
       };
     })

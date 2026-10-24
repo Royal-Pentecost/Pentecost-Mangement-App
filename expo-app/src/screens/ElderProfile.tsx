@@ -5,7 +5,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BRAND, RADIUS, useTheme } from "../theme";
 import { Elder, pentecostLogo } from "../data";
 import { Avatar, Btn, Card, Pulse, Txt, shadow } from "../ui";
-import { ChatIcon, ClockIcon, GmailIcon, PhoneIcon, WhatsappIcon } from "../icons";
+import { ChatIcon, ClockIcon, PhoneIcon, WhatsappIcon } from "../icons";
+import { contactLinks, openContact } from "../contact";
 import { PopIn } from "../motion";
 import { usePullToRefresh } from "../refresh";
 
@@ -13,6 +14,7 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
   // Pull down anywhere on this page to reload everything the app shows.
   const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
+  const links = contactLinks(elder.phone);
 
   return (
     <View style={{ flex: 1 }}>
@@ -63,34 +65,20 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
           </View>
         </LinearGradient>
 
-        {/* Quick actions */}
+        {/* Quick actions — Call, SMS and WhatsApp, as on every profile. "Send
+            Email" opened a blank message (no leader has an address on file),
+            and WhatsApp got the local 0-number, which opens a chat with nobody. */}
         <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 16, marginTop: 14 }}>
           {[
-            {
-              key: "call",
-              render: () => <PhoneIcon size={20} color={c.foreground} />,
-              label: "Call Office",
-              url: `tel:${elder.phone.replace(/\s/g, "")}`,
-            },
-            {
-              key: "email",
-              render: () => <GmailIcon size={20} />,
-              label: "Send Email",
-              url: `mailto:${elder.email}`,
-            },
-            {
-              // wa.me wants the number in international form with no punctuation.
-              key: "whatsapp",
-              render: () => <WhatsappIcon size={20} />,
-              label: "WhatsApp",
-              url: `https://wa.me/${elder.phone.replace(/[^0-9]/g, "")}`,
-            },
+            { key: "call", render: () => <PhoneIcon size={20} color={links ? c.foreground : c.mutedForeground} />, label: "Call", url: links?.call },
+            { key: "sms", render: () => <ChatIcon size={20} color={links ? c.foreground : c.mutedForeground} />, label: "SMS", url: links?.sms },
+            { key: "whatsapp", render: () => <WhatsappIcon size={20} />, label: "WhatsApp", url: links?.whatsapp },
           ].map(({ key, render, label, url }, contactIndex) => (
             <PopIn key={key} delay={contactIndex * 80} style={{ flex: 1 }}>
-            <Btn style={{ flex: 1 }} onPress={() => Linking.openURL(url).catch(() => {})}>
+            <Btn style={{ flex: 1, opacity: url ? 1 : 0.45 }} onPress={url ? () => openContact(url) : undefined} disabled={!url}>
               <Card style={{ alignItems: "center", gap: 7, paddingVertical: 14 }}>
                 {render()}
-                <Txt variant="bodySemi" style={{ fontSize: 11, color: c.foreground }}>
+                <Txt variant="bodySemi" style={{ fontSize: 11, color: url ? c.foreground : c.mutedForeground }}>
                   {label}
                 </Txt>
               </Card>
@@ -98,9 +86,15 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
             </PopIn>
           ))}
         </View>
+        {!links ? (
+          <Txt style={{ fontSize: 11.5, marginTop: 8, textAlign: "center", color: c.mutedForeground }}>
+            No phone number on file for {elder.name.split(" ")[0]} yet
+          </Txt>
+        ) : null}
 
         <View style={{ paddingHorizontal: 16, marginTop: 16, gap: 12 }}>
-          {/* Biography */}
+          {/* Biography — only when one has been written; it was an empty card. */}
+          {elder.bio ? (
           <Card style={{ padding: 14 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <View style={{ width: 4, height: 20, borderRadius: 2, backgroundColor: isDark ? BRAND.goldLight : BRAND.gold }} />
@@ -110,8 +104,9 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
             </View>
             <Txt style={{ fontSize: 14, lineHeight: 21, color: c.mutedForeground }}>{elder.bio}</Txt>
           </Card>
+          ) : null}
 
-          {/* Ministry roles */}
+          {/* Ministry roles, from the member's record on the roll. */}
           <Card style={{ padding: 14 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <View style={{ width: 4, height: 20, borderRadius: 2, backgroundColor: isDark ? BRAND.blue : BRAND.navy }} />
@@ -119,6 +114,9 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
                 Ministry Roles
               </Txt>
             </View>
+            {elder.roles.length === 0 ? (
+              <Txt style={{ fontSize: 12.5, color: c.mutedForeground }}>No ministry role recorded beyond their office</Txt>
+            ) : null}
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {elder.roles.map((role, i) => (
                 <PopIn key={i} delay={i * 70}>
@@ -141,7 +139,9 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
             </View>
           </Card>
 
-          {/* Office hours */}
+          {/* Office hours — only when set. With none, "currently accepting
+              appointments" was a promise nobody had made. */}
+          {elder.officeHours.trim() ? (
           <Card style={{ padding: 14 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <View style={{ width: 4, height: 20, borderRadius: 2, backgroundColor: isDark ? BRAND.green : BRAND.greenDark }} />
@@ -168,12 +168,16 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
               </Txt>
             </View>
           </Card>
+          ) : null}
         </View>
       </ScrollView>
 
-      {/* Floating CTA */}
+      {/* Floating CTA — opens a WhatsApp chat with this leader. It had no
+          action at all; with no number on file there is nothing to open, so
+          it is not shown. */}
+      {links ? (
       <View style={{ position: "absolute", left: 0, right: 0, bottom: 12, paddingHorizontal: 16 }}>
-        <Btn style={[{ borderRadius: 16, overflow: "hidden" }, shadow("lg")]}>
+        <Btn onPress={() => openContact(links.whatsapp)} style={[{ borderRadius: 16, overflow: "hidden" }, shadow("lg")]}>
           <LinearGradient
             colors={isDark ? [BRAND.navy, BRAND.blue] : [BRAND.navy, "#2563EB"]}
             start={{ x: 0, y: 0 }}
@@ -182,11 +186,12 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
           >
             <ChatIcon size={17} color="#fff" />
             <Txt variant="displayBold" style={{ fontSize: 14, textAlign: "center", color: "#fff" }}>
-              Send Direct Message / Request Counselling
+              Message on WhatsApp / Request Counselling
             </Txt>
           </LinearGradient>
         </Btn>
       </View>
+      ) : null}
     </View>
   );
 }

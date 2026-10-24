@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Linking, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { BRAND, RADIUS, useTheme } from "../theme";
-import { Elder, Member } from "../data";
-import { BookIcon, CameraIcon, ChatIcon, CheckIcon, CircleIcon, FlameIcon, HandshakeIcon, IdCardIcon, MusicIcon, PhoneIcon, PrayIcon, UsersIcon } from "../icons";
+import { Elder, Member, classForDayBorn } from "../data";
+import { BookIcon, CameraIcon, ChatIcon, CheckIcon, CircleIcon, FlameIcon, HandshakeIcon, MapPinIcon, MusicIcon, PhoneIcon, PrayIcon, ShieldIcon, UsersIcon, WhatsappIcon } from "../icons";
+import { contactLinks, openContact } from "../contact";
 import { Avatar, Btn, Card, ProgressBar, Pulse, Txt, shadow } from "../ui";
 import { SwapFade } from "../motion";
 import { usePullToRefresh } from "../refresh";
@@ -36,6 +37,9 @@ export default function MemberProfile({
   const tabs = TABS;
 
   const elder = elders.find((e) => e.id === member.elderId);
+  const links = contactLinks(member.phone);
+  const elderLinks = contactLinks(elder?.phone);
+  const accessLabel = member.role === "superAdmin" ? "Super admin" : member.role === "admin" ? "Assembly admin" : null;
 
   const statusColors: Record<string, { bg: string; text: string; label: string }> = {
     present: { bg: isDark ? "#16A34A22" : "#DCFCE7", text: isDark ? BRAND.greenLight : "#166534", label: "Present" },
@@ -87,7 +91,7 @@ export default function MemberProfile({
             {member.name}
           </Txt>
           <Txt style={{ fontSize: 12, marginTop: 2, color: "#BFDBFE" }}>
-            {member.assembly} · {member.district}
+            {[member.assembly, member.residence].filter(Boolean).join(" \u00b7 ")}
           </Txt>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
@@ -96,36 +100,41 @@ export default function MemberProfile({
                 {member.memberId}
               </Txt>
             </View>
+            {/* Their office in the church — "Elder", "Deaconess" — or "Member". The
+                "Member since" chip it replaces showed the year the roll was
+                imported for everyone. */}
             <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.12)" }}>
               <Txt variant="bodySemi" style={{ fontSize: 12, color: "rgba(255,255,255,0.85)" }}>
-                Member since {member.since}
+                {member.churchTitle || "Member"}
               </Txt>
             </View>
           </View>
         </View>
       </LinearGradient>
 
-      {/* Quick actions */}
+      {/* Quick actions — the same three on every profile. Most of the roll has
+          no number yet; those buttons say so instead of doing nothing. */}
       <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 16, marginTop: 14 }}>
         {[
-          { key: "call", Icon: PhoneIcon, label: "Call", url: `tel:${member.phone.replace(/\s/g, "")}` },
-          { key: "sms", Icon: ChatIcon, label: "SMS", url: `sms:${member.phone.replace(/\s/g, "")}` },
-          { key: "id", Icon: IdCardIcon, label: "Digital ID", url: null },
-        ].map(({ key, Icon, label, url }) => (
-          <Btn
-            key={key}
-            style={{ flex: 1 }}
-            onPress={url ? () => Linking.openURL(url).catch(() => {}) : undefined}
-          >
+          { key: "call", render: () => <PhoneIcon size={20} color={links ? c.foreground : c.mutedForeground} />, label: "Call", url: links?.call },
+          { key: "sms", render: () => <ChatIcon size={20} color={links ? c.foreground : c.mutedForeground} />, label: "SMS", url: links?.sms },
+          { key: "whatsapp", render: () => <WhatsappIcon size={20} />, label: "WhatsApp", url: links?.whatsapp },
+        ].map(({ key, render, label, url }) => (
+          <Btn key={key} style={{ flex: 1, opacity: url ? 1 : 0.45 }} onPress={url ? () => openContact(url) : undefined} disabled={!url}>
             <Card style={{ alignItems: "center", gap: 7, paddingVertical: 14 }}>
-              <Icon size={20} color={c.foreground} />
-              <Txt variant="bodySemi" style={{ fontSize: 11, color: c.foreground }}>
+              {render()}
+              <Txt variant="bodySemi" style={{ fontSize: 11, color: url ? c.foreground : c.mutedForeground }}>
                 {label}
               </Txt>
             </Card>
           </Btn>
         ))}
       </View>
+      {!links ? (
+        <Txt style={{ fontSize: 11.5, marginTop: 8, textAlign: "center", color: c.mutedForeground }}>
+          No phone number on file for {member.name.split(" ")[0]} yet
+        </Txt>
+      ) : null}
 
       {/* Tabs */}
       <View style={{ flexDirection: "row", gap: 3, marginHorizontal: 13, marginTop: 16, padding: 4, borderRadius: RADIUS.md, backgroundColor: c.muted }}>
@@ -172,10 +181,12 @@ export default function MemberProfile({
                   </Pulse>
                   <FlameIcon size={14} color={c.accent} />
                   <Txt variant="bodySemi" style={{ fontSize: 12, color: c.foreground }}>
-                    {member.streak}-week streak
+                    {member.streak}-Sunday streak
                   </Txt>
                 </View>
-                <Txt style={{ fontSize: 12, color: c.mutedForeground }}>Active</Txt>
+                <Txt style={{ fontSize: 12, color: c.mutedForeground }}>
+                  {member.attended ?? 0} of {member.held ?? 0} services
+                </Txt>
               </View>
             </Card>
 
@@ -185,6 +196,9 @@ export default function MemberProfile({
                   Recent Services
                 </Txt>
               </View>
+              {member.attendanceLogs.length === 0 ? (
+                <Txt style={{ fontSize: 12.5, padding: 16, color: c.mutedForeground }}>No services recorded yet</Txt>
+              ) : null}
               {member.attendanceLogs.map((log, i) => {
                 const sc = statusColors[log.status];
                 return (
@@ -220,10 +234,46 @@ export default function MemberProfile({
 
         {/* Roles */}
         {activeTab === "roles" ? (
+          <>
+          {/* Their standing in the church, from the roll. */}
+          <Card style={{ padding: 14, gap: 10 }}>
+            <Txt variant="displayBold" style={{ fontSize: 14, marginBottom: 2, color: c.foreground }}>
+              Role in Church
+            </Txt>
+            {[
+              { key: "office", Icon: ShieldIcon, label: "Office", value: member.churchTitle || "Member" },
+              {
+                key: "group",
+                Icon: UsersIcon,
+                label: "Day-born group",
+                value: member.dayBorn
+                  ? `${classForDayBorn(member.dayBorn).akan} (${member.dayBorn}-born)${member.dayBornLeader ? " \u00b7 leads the group" : ""}`
+                  : "Not recorded",
+              },
+              ...(accessLabel ? [{ key: "access", Icon: ShieldIcon, label: "App access", value: accessLabel }] : []),
+              { key: "home", Icon: MapPinIcon, label: "Residence", value: member.residence || "Not recorded" },
+            ].map(({ key, Icon, label, value }) => (
+              <View key={key} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.muted }}>
+                <View style={{ width: 32, height: 32, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: isDark ? "#1E3A8A33" : "#EFF6FF" }}>
+                  <Icon size={15} color={isDark ? BRAND.blueLight : BRAND.navy} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Txt style={{ fontSize: 11.5, color: c.mutedForeground }}>{label}</Txt>
+                  <Txt variant="bodySemi" style={{ fontSize: 14, marginTop: 1, color: c.foreground }}>
+                    {value}
+                  </Txt>
+                </View>
+              </View>
+            ))}
+          </Card>
+
           <Card style={{ padding: 14 }}>
             <Txt variant="displayBold" style={{ fontSize: 14, marginBottom: 12, color: c.foreground }}>
               Ministry &amp; Department Roles
             </Txt>
+            {member.departments.length === 0 ? (
+              <Txt style={{ fontSize: 12.5, color: c.mutedForeground }}>No ministry or department role recorded</Txt>
+            ) : null}
             <View style={{ gap: 10 }}>
               {member.departments.map((dept, i) => (
                 <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.muted }}>
@@ -234,7 +284,7 @@ export default function MemberProfile({
                     <Txt variant="bodySemi" style={{ fontSize: 14, color: c.foreground }}>
                       {dept}
                     </Txt>
-                    <Txt style={{ fontSize: 12, color: c.mutedForeground }}>Active Role</Txt>
+                    <Txt style={{ fontSize: 12, color: c.mutedForeground }}>Serves in</Txt>
                   </View>
                   <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: isDark ? "#16A34A22" : "#DCFCE7" }}>
                     <Txt variant="bodySemi" style={{ fontSize: 10, color: isDark ? BRAND.greenLight : "#166534" }}>
@@ -245,6 +295,7 @@ export default function MemberProfile({
               ))}
             </View>
           </Card>
+          </>
         ) : null}
 
         {/* Milestones */}
@@ -324,11 +375,16 @@ export default function MemberProfile({
                 </Txt>
                 <Txt style={{ fontSize: 12, color: c.mutedForeground }}>{elder.assembly} Assembly</Txt>
               </View>
-              <Btn style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: isDark ? "#1E3A8A22" : "#EFF6FF" }}>
-                <Txt variant="bodySemi" style={{ fontSize: 12, color: isDark ? BRAND.blueLight : BRAND.navy }}>
-                  Contact
-                </Txt>
-              </Btn>
+              {elderLinks ? (
+                <Btn
+                  onPress={() => openContact(elderLinks.call)}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: isDark ? "#1E3A8A22" : "#EFF6FF" }}
+                >
+                  <Txt variant="bodySemi" style={{ fontSize: 12, color: isDark ? BRAND.blueLight : BRAND.navy }}>
+                    Call
+                  </Txt>
+                </Btn>
+              ) : null}
             </View>
           </Card>
         ) : null}

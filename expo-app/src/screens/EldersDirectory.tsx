@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
-import { Elder, leaderFilters } from "../data";
-import { useDirectory } from "../directory";
+import { Elder, leaderFilters, otherLeaders } from "../data";
+import { useDirectory, useMe } from "../directory";
 import { ChevronRightIcon, SearchIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, TintTile, Txt, tintFg } from "../ui";
 import { FadeIn } from "../motion";
@@ -21,7 +21,10 @@ export default function EldersDirectory({
   const { c, isDark } = useTheme();
   // Every office holder on the roll, ranked presiding elder → elders → deacons →
   // deaconesses. This read the nine seeded leaders in `data.ts` until now.
-  const { elders, loading, error } = useDirectory();
+  const { elders: allLeaders, loading, error } = useDirectory();
+  // A leader browsing the leaders is looking for the others.
+  const me = useMe();
+  const elders = otherLeaders(allLeaders, me?.id);
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [showSearch, setShowSearch] = useState(false);

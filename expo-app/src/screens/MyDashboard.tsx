@@ -25,6 +25,7 @@ import {
   studyReleased,
   studyText,
   visibleMembers,
+  otherLeaders,
 } from "../data";
 import { useContent } from "../store";
 import { exportPdf, stampedName } from "../files";
@@ -600,7 +601,9 @@ export default function MyDashboard({
   };
   const myElder = elders.find((e) => e.id === me.elderId);
   // Everyone born on the same weekday as this member, them included.
-  const groupSize = roll.filter((m) => m.dayBorn === me.dayBorn).length;
+  // The others in their group — the list this card opens leaves them out.
+  const groupSize = roll.filter((m) => m.dayBorn === me.dayBorn && m.id !== liveMe?.id).length;
+  const leadersShown = otherLeaders(elders, liveMe?.id);
 
   // Today onward, soonest first. The server returns every event ever
   // published, so last month's harvest would otherwise sit at the top of
@@ -827,6 +830,15 @@ export default function MyDashboard({
       {/* Weekly schedule */}
       <SectionHeading label="Weekly Schedule" />
 
+      {/* With nothing published the heading sat over nothing at all. */}
+      {weeklySchedule.length === 0 ? (
+        <Card style={{ padding: 16, alignItems: "center" }}>
+          <Txt variant="bodyMedium" style={{ fontSize: 12.5, color: c.mutedForeground }}>
+            No weekly services published yet
+          </Txt>
+        </Card>
+      ) : null}
+
       {/* Square photo tiles, one per service */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
         {weeklySchedule.map((s, i) => (
@@ -926,7 +938,7 @@ export default function MyDashboard({
       <Btn onPress={onOpenElders} style={{ marginTop: 10 }}>
         <Card style={{ padding: 12, flexDirection: "row", alignItems: "center", gap: 13 }}>
           <View style={{ width: 66, height: 40, justifyContent: "center" }}>
-            {elders.slice(0, 3).map((e, i) => (
+            {leadersShown.slice(0, 3).map((e, i) => (
               <View key={e.id} style={{ position: "absolute", left: i * 17, zIndex: 3 - i }}>
                 <Avatar
                   photo={e.photo}
@@ -946,9 +958,9 @@ export default function MyDashboard({
               Church Leaders
             </Txt>
             <Txt variant="bodyMedium" style={{ fontSize: 12.5, marginTop: 2, color: c.mutedForeground }}>
-              {rollLoading && elders.length === 0
+              {rollLoading && leadersShown.length === 0
                 ? "Loading leaders…"
-                : `${leaderSummary(elders)} · Ayigya District`}
+                : `${leaderSummary(leadersShown)} · Ayigya District`}
             </Txt>
           </View>
           <View style={{ width: 34, height: 34, borderRadius: RADIUS.sm, alignItems: "center", justifyContent: "center", backgroundColor: c.primary }}>

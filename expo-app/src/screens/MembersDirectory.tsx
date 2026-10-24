@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
-import { LoginRole, ME, Member, dayBornMembers, memberFilters, visibleMembers } from "../data";
+import { LoginRole, ME, Member, dayBornMembers, memberFilters, othersOnly, visibleMembers } from "../data";
 import { useDirectory, useMe } from "../directory";
 import { ChevronRightIcon, SearchIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, Txt } from "../ui";
@@ -40,8 +40,10 @@ export default function MembersDirectory({
   // came in through the day-born card, admins included.
   const viewer = me ?? ME;
   const groupOnly = scope === "dayBorn" || loginRole === "member";
-  const scoped =
-    scope === "dayBorn" ? dayBornMembers(viewer, directory) : visibleMembers(loginRole, viewer, directory);
+  const scoped = othersOnly(
+    scope === "dayBorn" ? dayBornMembers(viewer, directory) : visibleMembers(loginRole, viewer, directory),
+    me?.id,
+  );
   // Inside one group, a "Day-Born Leaders" chip would only ever find the person
   // looking at it.
   const filters = groupOnly ? memberFilters.filter((f) => f !== "Day-Born Leaders") : memberFilters;
