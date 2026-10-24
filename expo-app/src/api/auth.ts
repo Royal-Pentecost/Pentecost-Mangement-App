@@ -183,6 +183,16 @@ export async function noteSignIn(memberId: string): Promise<{ firstTime: boolean
 }
 
 /** Forgets the token on this device. */
+/**
+ * Ends the sign-in on the server. Clearing the phone alone left the token
+ * valid there for ever; this deletes it, so the 28-day session really ends.
+ * Best effort: offline, the phone still forgets it, and the server refuses it
+ * once it reaches 28 days anyway.
+ */
+export async function logoutOnServer(): Promise<void> {
+  await request("/api/v1/auth/logout/", { method: "POST" }).catch(() => {});
+}
+
 export async function signOut(): Promise<void> {
   setAuthToken(null);
   await storage.clear(TOKEN_KEY);

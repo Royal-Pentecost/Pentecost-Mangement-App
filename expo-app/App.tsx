@@ -22,6 +22,7 @@ import { LocationProvider, useLocation } from "./src/location";
 import { SessionProvider, useSession } from "./src/session";
 import { TodayAttendanceProvider, useTodayAttendance } from "./src/today";
 import { useOnPullToRefresh, useRefreshAll } from "./src/refresh";
+import { logoutOnServer } from "./src/api/auth";
 import { Notifications, notificationKind, registerForPush, unregisterPush } from "./src/push";
 import { DirectoryProvider, useDirectory } from "./src/directory";
 import * as Api from "./src/api/resources";
@@ -415,7 +416,10 @@ function ChurchApp() {
     // get the last person's notifications. Then drop the token from the
     // keystore, or the next launch would restore a session the member thought
     // they had ended.
-    void unregisterPush().finally(() => void endSession());
+    // Then end it on the server, so the token is dead everywhere, not just here.
+    void unregisterPush()
+      .then(() => logoutOnServer())
+      .finally(() => void endSession());
 
     setAppPhase("login");
     setLoginPhone("");
