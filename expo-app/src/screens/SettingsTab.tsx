@@ -55,12 +55,15 @@ function SettingsRow({ row, onPress }: { row: Row; onPress: () => void }) {
 export default function SettingsTab({
   user,
   onChangePhoto,
+  photoStatus,
   onOpenTopic,
   onLogout,
   bottomInset,
 }: {
   user: SessionUser;
   onChangePhoto: (uri: string) => void;
+  /** How the last photo change went — shown under the button, never swallowed. */
+  photoStatus: { state: "uploading" | "done" | "failed"; message: string } | null;
   onOpenTopic: (topic: SettingsTopic) => void;
   onLogout: () => void;
   bottomInset: number;
@@ -146,9 +149,26 @@ export default function SettingsTab({
           style={{ marginTop: 14, paddingHorizontal: 16, paddingVertical: 9, borderRadius: RADIUS.pill, backgroundColor: c.muted }}
         >
           <Txt variant="bodySemi" style={{ fontSize: 12.5, color: c.primary }}>
-            Change profile picture
+            {photoStatus?.state === "uploading" ? "Uploading…" : "Change profile picture"}
           </Txt>
         </Btn>
+
+        {/* A failed upload used to drop the preview without a word, so the
+            photo just never appeared and nobody knew why. */}
+        {photoStatus && photoStatus.state !== "uploading" ? (
+          <Txt
+            variant="bodySemi"
+            style={{
+              fontSize: 12,
+              lineHeight: 17,
+              marginTop: 10,
+              textAlign: "center",
+              color: photoStatus.state === "failed" ? (isDark ? "#FCA5A5" : "#B91C1C") : tintFg("green", isDark),
+            }}
+          >
+            {photoStatus.message}
+          </Txt>
+        ) : null}
       </Card>
 
       {/* Appearance */}

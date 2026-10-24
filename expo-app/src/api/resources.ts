@@ -1,4 +1,4 @@
-import { listAll, request } from "./client";
+import { listAll, request, uploadImage } from "./client";
 import {
   ApiActivityLog,
   ApiAssembly,
@@ -125,61 +125,24 @@ export const updateAssembly = (
 /**
  * Uploads a member's profile photograph.
  *
- * Sent as multipart rather than JSON because `profile_photo` is an ImageField —
- * the server wants the file, not a path. On a phone the picker hands back a
- * `file://` URI, which React Native turns into a real upload when given as
- * `{ uri, name, type }`; in the browser the same URI is a blob that has to be
- * fetched first. Both arrive at the server as an ordinary file part.
+ * Sent as a file because `profile_photo` is an ImageField — the server wants
+ * the image, not a path. `uploadImage` decides how: Expo's native uploader on
+ * a phone, a FormData blob in the browser.
  */
-export async function uploadProfilePhoto(memberId: string, uri: string): Promise<ApiMember> {
-  return request<ApiMember>(`/api/v1/accounts/members/${encodeURIComponent(memberId)}/`, {
-    method: "PATCH",
-    form: await imageForm("profile_photo", uri),
-  });
-}
-
-/** One picked image as a multipart body, under the field the server expects. */
-async function imageForm(field: string, uri: string): Promise<FormData> {
-  const form = new FormData();
-  const name = uri.split("/").pop()?.split("?")[0] || "photo.jpg";
-  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "jpg";
-  const type = `image/${ext === "jpg" ? "jpeg" : ext}`;
-
-  if (uri.startsWith("blob:") || uri.startsWith("data:")) {
-    const blob = await (await fetch(uri)).blob();
-    // A blob URL carries no file name, so give the server one with the type's
-    // extension — it validates images partly by name.
-    const blobName = name.includes(".") ? name : `cover.${(blob.type.split("/")[1] || "jpeg").replace("jpeg", "jpg")}`;
-    form.append(field, blob, blobName);
-  } else {
-    // React Native's own multipart shape; `as never` because the DOM typings
-    // for FormData do not describe it.
-    form.append(field, { uri, name, type } as never);
-  }
-  return form;
-}
+export const uploadProfilePhoto = (memberId: string, uri: string) =>
+  uploadImage<ApiMember>(`/api/v1/accounts/members/${encodeURIComponent(memberId)}/`, "profile_photo", uri);
 
 /**
  * Attaches the photograph an admin picked when publishing.
  *
  * Sent as a second request because the item has to exist before a file can
- * be attached to it. This was never sent at all: the picture stayed a file
- * path on the publishing phone, and every other device showed the app's
- * bundled stock photo in its place.
+ * be attached to it.
  */
-export async function uploadScheduleCover(id: string, uri: string): Promise<ApiWeeklySchedule> {
-  return request<ApiWeeklySchedule>(`/api/v1/content/schedules/${encodeURIComponent(id)}/`, {
-    method: "PATCH",
-    form: await imageForm("banner_image", uri),
-  });
-}
+export const uploadScheduleCover = (id: string, uri: string) =>
+  uploadImage<ApiWeeklySchedule>(`/api/v1/content/schedules/${encodeURIComponent(id)}/`, "banner_image", uri);
 
-export async function uploadEventCover(id: string, uri: string): Promise<ApiEvent> {
-  return request<ApiEvent>(`/api/v1/content/events/${encodeURIComponent(id)}/`, {
-    method: "PATCH",
-    form: await imageForm("cover_image", uri),
-  });
-}
+export const uploadEventCover = (id: string, uri: string) =>
+  uploadImage<ApiEvent>(`/api/v1/content/events/${encodeURIComponent(id)}/`, "cover_image", uri);
 
 /** Patches a member. Used for the member's own settings. */
 export const updateMember = (id: string, body: Partial<ApiMember> | FormData) =>

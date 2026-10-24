@@ -62,6 +62,7 @@ function ChurchApp() {
   // stale pre-sign-in one — which rendered the dashboard with a null user.
   // A locally chosen photograph overlays it until the upload lands.
   const [localPhoto, setLocalPhoto] = useState<string | null>(null);
+  const [photoStatus, setPhotoStatus] = useState<{ state: "uploading" | "done" | "failed"; message: string } | null>(null);
 
   // Who the server says is signed in, and what it lets them do. Privileges come
   // with the verified profile rather than from a table of numbers in the app.
@@ -88,14 +89,15 @@ function ChurchApp() {
   // to the page the user actually came from — including across tab switches —
   // rather than following a fixed parent-child hierarchy.
   const [history, setHistory] = useState<NavEntry[]>([{ tab: "home", sub: "none" }]);
-  const here = history[history.length - 1];
+  // Never undefined, even if something empties the trail.
+  const here = history[history.length - 1] ?? { tab: "home" as const, sub: "none" as const };
   const mainTab = here.tab;
   const subScreen = here.sub;
 
   /** Push a new page. Re-tapping the page you are on is a no-op, not a new entry. */
   const go = (next: Partial<NavEntry>) =>
     setHistory((h) => {
-      const cur = h[h.length - 1];
+      const cur: NavEntry = h[h.length - 1] ?? { tab: "home", sub: "none" };
       const entry: NavEntry = { tab: next.tab ?? cur.tab, sub: next.sub ?? "none" };
       if (entry.tab === cur.tab && entry.sub === cur.sub) return h;
       // Keep the trail bounded; nobody needs to walk back a hundred pages.
@@ -293,7 +295,11 @@ function ChurchApp() {
 
   const handleBack = () => {
     if (history.length > 1) {
-      setHistory((h) => h.slice(0, -1));
+      // Checked again against the live value: `history` here can be a render
+      // behind, and two quick presses of the phone's back button both passed
+      // the outer check, popped twice, and emptied the trail — the next render
+      // then read `.tab` of nothing and the app crashed.
+      setHistory((h) => (h.length > 1 ? h.slice(0, -1) : h));
     } else if (loginRole !== "member") {
       // Nothing left in the trail — admins fall back to the assembly picker.
       // Members have no picker, so their root is the end of the line.
@@ -486,16 +492,21 @@ function ChurchApp() {
           onChangePhoto={async (uri) => {
             // Show it straight away so the tap feels answered, then upload. If
             // the upload fails the preview is dropped rather than left looking
-            // saved — a photo that only exists on this phone is a lie.
+            // saved — a photo that only exists on this phone is a lie — and the
+            // reason is shown, where it used to be swallowed.
             setLocalPhoto(uri);
+            setPhotoStatus({ state: "uploading", message: "" });
             try {
               await uploadPhoto(uri);
               setLocalPhoto(null);
+              setPhotoStatus({ state: "done", message: "Profile photo updated." });
               await refreshDirectory();
-            } catch {
+            } catch (e) {
               setLocalPhoto(null);
+              setPhotoStatus({ state: "failed", message: `Your photo was not saved: ${describeError(e)}` });
             }
           }}
+          photoStatus={photoStatus}
           settingsTopic={settingsTopic}
           onOpenSettingsTopic={(t) => {
             setSettingsTopic(t);

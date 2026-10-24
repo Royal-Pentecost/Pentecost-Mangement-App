@@ -219,6 +219,68 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 /**
+ * Sends one picked photograph to an ImageField and returns the updated record.
+ *
+ * On a phone this goes through Expo's native uploader rather than `fetch` with
+ * a FormData body. The JavaScript multipart path is the one with the Android
+ * quirks around picked files, and when it failed it failed before anything
+ * left the phone — the server never saw a request, and the photo simply did
+ * not appear. The native uploader streams the file itself. In the browser the
+ * FormData path is used, since there the picked image is a blob, not a file.
+ */
+export async function uploadImage<T>(
+  path: string,
+  field: string,
+  uri: string,
+  method: "PATCH" | "POST" = "PATCH",
+): Promise<T> {
+  const name = uri.split("/").pop()?.split("?")[0] || "photo.jpg";
+  const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "jpg";
+  const mimeType = `image/${ext === "jpg" ? "jpeg" : ext}`;
+
+  if (Platform.OS === "web") {
+    const form = new FormData();
+    const blob = await (await fetch(uri)).blob();
+    // A blob URL carries no file name; the server validates images partly by it.
+    const blobName = name.includes(".") ? name : `photo.${(blob.type.split("/")[1] || "jpeg").replace("jpeg", "jpg")}`;
+    form.append(field, blob, blobName);
+    return request<T>(path, { method, form });
+  }
+
+  // Imported here so the web bundle never loads the native module.
+  const FileSystem = await import("expo-file-system/legacy");
+  let result: { status: number; body: string };
+  try {
+    result = await FileSystem.uploadAsync(buildUrl(path), uri, {
+      httpMethod: method,
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      fieldName: field,
+      mimeType,
+      headers: {
+        Accept: "application/json",
+        ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+      },
+    });
+  } catch {
+    throw new ApiError(0, "Could not upload the photo. Check your connection and try again.");
+  }
+
+  let parsed: unknown = result.body;
+  try {
+    parsed = result.body ? JSON.parse(result.body) : null;
+  } catch {
+    /* An HTML error page; `describe` falls back to the status. */
+  }
+
+  if (result.status < 200 || result.status >= 300) {
+    const { message, fields } = describe(result.status, parsed);
+    if (result.status === 401) onUnauthorized?.();
+    throw new ApiError(result.status, message, fields);
+  }
+  return parsed as T;
+}
+
+/**
  * Walks every page of a list endpoint.
  *
  * Capped, because an unbounded loop against a paginated endpoint is how one

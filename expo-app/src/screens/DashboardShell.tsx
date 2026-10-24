@@ -148,6 +148,7 @@ export default function DashboardShell(props: {
   onOpenNotifications: () => void;
   sessionUser: SessionUser;
   onChangePhoto: (uri: string) => void;
+  photoStatus: { state: "uploading" | "done" | "failed"; message: string } | null;
   settingsTopic: SettingsTopic;
   onOpenSettingsTopic: (t: SettingsTopic) => void;
   onLogout: () => void;
@@ -374,6 +375,7 @@ export default function DashboardShell(props: {
           <SettingsTab
             user={props.sessionUser}
             onChangePhoto={props.onChangePhoto}
+            photoStatus={props.photoStatus}
             onOpenTopic={props.onOpenSettingsTopic}
             onLogout={props.onLogout}
             bottomInset={contentBottomInset}
