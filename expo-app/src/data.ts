@@ -946,6 +946,8 @@ export interface UpcomingEvent {
   tint?: "amber" | "blue" | "violet" | "green";
   /** A photograph the admin attached when publishing, as a file URI. */
   cover?: string;
+  /** `YYYY-MM-DD`, from the server — what "upcoming" is measured by. */
+  isoDate?: string;
 }
 
 export const upcomingEvents: UpcomingEvent[] = [

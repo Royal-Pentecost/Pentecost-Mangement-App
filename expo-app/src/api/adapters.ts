@@ -243,16 +243,22 @@ export function toServiceSlot(s: ApiWeeklySchedule): ServiceSlot {
   };
 }
 
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 export function toEvent(e: ApiEvent): UpcomingEvent {
-  const d = new Date(e.event_date);
-  const date = Number.isNaN(d.getTime())
-    ? e.event_date
-    : d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+  // "Nov 14", month first, built by hand. `toLocaleDateString("en-GB")` gave
+  // "14 Nov", and the dashboard tile reads the first word as the month — so
+  // every event showed its day where the month belongs. Read from the string
+  // rather than through `Date` so no timezone can move it a day either way.
+  const [, mm, dd] = e.event_date.split("-").map(Number);
+  const date = mm && dd ? `${MONTH_SHORT[mm - 1]} ${dd}` : e.event_date;
   return {
     id: e.id,
+    isoDate: e.event_date,
     date,
     name: e.title,
     tag: e.description || (e.scope === "district" ? "District" : "Assembly"),
+    cover: e.cover_image ?? undefined,
   };
 }
 

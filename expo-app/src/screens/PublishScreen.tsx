@@ -142,6 +142,25 @@ function PublishedRow({
  * shared content store, so it is on every member's dashboard immediately and
  * announced in their notifications — no separate "publish" step to forget.
  */
+/**
+ * Why the last publish did not land, shown under the button that was tapped.
+ *
+ * The store has always recorded this; nothing displayed it. A refused publish
+ * left the admin looking at an empty form and a member's dashboard without
+ * the service — with no way to tell the two apart.
+ */
+function PublishProblem({ message }: { message: string | null }) {
+  const { isDark } = useTheme();
+  if (!message) return null;
+  return (
+    <View style={{ marginTop: 10, padding: 10, borderRadius: RADIUS.sm, backgroundColor: isDark ? "#DC262622" : "#FEE2E2" }}>
+      <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, color: isDark ? "#FCA5A5" : "#B91C1C" }}>
+        {message}
+      </Txt>
+    </View>
+  );
+}
+
 export default function PublishScreen({ bottomInset }: { bottomInset: number }) {
   const { c, isDark } = useTheme();
   const {
@@ -158,7 +177,10 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     dailyVerse,
     publishDailyVerse,
     removeDailyVerse,
+    publishError,
+    clearPublishError,
   } = useContent();
+  const [publishing, setPublishing] = useState(false);
 
   const [section, setSection] = useState<Section>("schedule");
   const [saved, setSaved] = useState<string | null>(null);
@@ -193,10 +215,22 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
   const setForm = (patch: Partial<StudyForm>) =>
     (studyLang === "tw" ? setTw : setEn)((f) => ({ ...f, ...patch }));
 
-  const flash = (msg: string) => setSaved(msg);
+  const flash = (msg: string) => {
+    clearPublishError();
+    setSaved(msg);
+  };
 
-  const saveService = () => {
-    addService({ day: sDay.trim(), name: sName.trim(), time: sTime.trim(), venue: sVenue.trim(), cover: sCover });
+  // Waits for the server. This used to say "published" the instant the button
+  // was tapped, so a refused publish — and a photo that never uploaded —
+  // looked exactly like a successful one. The form is kept on failure so the
+  // admin fixes one field rather than retyping the lot.
+  const saveService = async () => {
+    if (publishing) return;
+    setSaved(null);
+    setPublishing(true);
+    const ok = await addService({ day: sDay.trim(), name: sName.trim(), time: sTime.trim(), venue: sVenue.trim(), cover: sCover });
+    setPublishing(false);
+    if (!ok) return;
     setSDay("");
     setSName("");
     setSTime("");
@@ -205,8 +239,13 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     flash(sCover ? "Service published — the photo is now in the dashboard slider" : "Service published to every member's dashboard");
   };
 
-  const saveEvent = () => {
-    addEvent({ date: eDate.trim(), name: eName.trim(), tag: eTag.trim() || "Assembly", cover: eCover });
+  const saveEvent = async () => {
+    if (publishing) return;
+    setSaved(null);
+    setPublishing(true);
+    const ok = await addEvent({ date: eDate.trim(), name: eName.trim(), tag: eTag.trim() || "Assembly", cover: eCover });
+    setPublishing(false);
+    if (!ok) return;
     setEDate("");
     setEName("");
     setETag("");
@@ -353,7 +392,8 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
             <Field label="Service name" value={sName} onChangeText={setSName} placeholder="Divine Service" />
             <Field label="Venue" value={sVenue} onChangeText={setSVenue} placeholder="Royal Assembly" />
             <CoverPicker value={sCover} onChange={setSCover} />
-            <SubmitButton label="Publish service" onPress={saveService} disabled={!scheduleReady} Icon={PlusIcon} />
+            <SubmitButton label={publishing ? "Publishing…" : "Publish service"} onPress={saveService} disabled={!scheduleReady || publishing} Icon={PlusIcon} />
+            <PublishProblem message={publishError} />
           </Card>
 
           <SectionHeading
@@ -392,7 +432,8 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
             </View>
             <Field label="Event name" value={eName} onChangeText={setEName} placeholder="Harvest Festival" />
             <CoverPicker value={eCover} onChange={setECover} />
-            <SubmitButton label="Publish event" onPress={saveEvent} disabled={!eventReady} Icon={PlusIcon} />
+            <SubmitButton label={publishing ? "Publishing…" : "Publish event"} onPress={saveEvent} disabled={!eventReady || publishing} Icon={PlusIcon} />
+            <PublishProblem message={publishError} />
           </Card>
 
           <SectionHeading

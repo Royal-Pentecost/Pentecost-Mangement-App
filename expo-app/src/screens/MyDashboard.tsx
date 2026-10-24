@@ -486,6 +486,9 @@ function PhotoCarousel() {
  * card, so it gives the total and the two largest offices — enough for a member
  * to see this is the whole leadership and not just the elders.
  */
+/** Server events carry no colour of their own, so the cards take turns. */
+const EVENT_CARD_TINTS = ["amber", "blue", "violet", "green"] as const;
+
 function leaderSummary(leaders: Elder[]): string {
   if (leaders.length === 0) return "No leaders on file";
   const deacons = leaders.filter((l) => l.office === "Deacon" || l.office === "Deaconess").length;
@@ -582,6 +585,18 @@ export default function MyDashboard({
   const myElder = elders.find((e) => e.id === me.elderId);
   // Everyone born on the same weekday as this member, them included.
   const groupSize = roll.filter((m) => m.dayBorn === me.dayBorn).length;
+
+  // Today onward, soonest first. The server returns every event ever
+  // published, so last month's harvest would otherwise sit at the top of
+  // "Upcoming" indefinitely. Compared as YYYY-MM-DD strings, which order the
+  // same way the dates do.
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const upcomingEvents = events
+    .filter((e) => !e.isoDate || e.isoDate >= todayIso)
+    .sort((a, b) => (a.isoDate ?? "").localeCompare(b.isoDate ?? ""));
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
   const canMark = scenario === "inside-active" && !attendanceMarked;
@@ -1017,8 +1032,8 @@ export default function MyDashboard({
       <SectionHeading label="Upcoming Events" />
 
       <View style={{ gap: 10 }}>
-        {events.map((e, i) => {
-          const ev = { ...e, tint: (e.tint ?? "blue") as TintName };
+        {upcomingEvents.map((e, i) => {
+          const ev = { ...e, tint: (EVENT_CARD_TINTS[i % EVENT_CARD_TINTS.length] ?? e.tint ?? "blue") as TintName };
           return (
           <FadeIn key={ev.id} index={i}>
           <Card style={{ padding: 12, flexDirection: "row", alignItems: "center", gap: 13 }}>
@@ -1038,10 +1053,22 @@ export default function MyDashboard({
                 {ev.tag} event
               </Txt>
             </View>
+            {/* The photograph the admin published with it. */}
+            {ev.cover ? (
+              <Image source={{ uri: ev.cover }} style={{ width: 52, height: 52, borderRadius: RADIUS.sm }} resizeMode="cover" />
+            ) : null}
           </Card>
           </FadeIn>
           );
         })}
+
+        {upcomingEvents.length === 0 ? (
+          <Card style={{ padding: 16, alignItems: "center" }}>
+            <Txt variant="bodyMedium" style={{ fontSize: 12.5, color: c.mutedForeground }}>
+              No upcoming events published yet
+            </Txt>
+          </Card>
+        ) : null}
       </View>
 
       {/* The class this member is due at, for the week the app is in */}

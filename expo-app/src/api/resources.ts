@@ -132,6 +132,14 @@ export const updateAssembly = (
  * fetched first. Both arrive at the server as an ordinary file part.
  */
 export async function uploadProfilePhoto(memberId: string, uri: string): Promise<ApiMember> {
+  return request<ApiMember>(`/api/v1/accounts/members/${encodeURIComponent(memberId)}/`, {
+    method: "PATCH",
+    form: await imageForm("profile_photo", uri),
+  });
+}
+
+/** One picked image as a multipart body, under the field the server expects. */
+async function imageForm(field: string, uri: string): Promise<FormData> {
   const form = new FormData();
   const name = uri.split("/").pop()?.split("?")[0] || "photo.jpg";
   const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "jpg";
@@ -139,16 +147,37 @@ export async function uploadProfilePhoto(memberId: string, uri: string): Promise
 
   if (uri.startsWith("blob:") || uri.startsWith("data:")) {
     const blob = await (await fetch(uri)).blob();
-    form.append("profile_photo", blob, name);
+    // A blob URL carries no file name, so give the server one with the type's
+    // extension — it validates images partly by name.
+    const blobName = name.includes(".") ? name : `cover.${(blob.type.split("/")[1] || "jpeg").replace("jpeg", "jpg")}`;
+    form.append(field, blob, blobName);
   } else {
     // React Native's own multipart shape; `as never` because the DOM typings
     // for FormData do not describe it.
-    form.append("profile_photo", { uri, name, type } as never);
+    form.append(field, { uri, name, type } as never);
   }
+  return form;
+}
 
-  return request<ApiMember>(`/api/v1/accounts/members/${encodeURIComponent(memberId)}/`, {
+/**
+ * Attaches the photograph an admin picked when publishing.
+ *
+ * Sent as a second request because the item has to exist before a file can
+ * be attached to it. This was never sent at all: the picture stayed a file
+ * path on the publishing phone, and every other device showed the app's
+ * bundled stock photo in its place.
+ */
+export async function uploadScheduleCover(id: string, uri: string): Promise<ApiWeeklySchedule> {
+  return request<ApiWeeklySchedule>(`/api/v1/content/schedules/${encodeURIComponent(id)}/`, {
     method: "PATCH",
-    form,
+    form: await imageForm("banner_image", uri),
+  });
+}
+
+export async function uploadEventCover(id: string, uri: string): Promise<ApiEvent> {
+  return request<ApiEvent>(`/api/v1/content/events/${encodeURIComponent(id)}/`, {
+    method: "PATCH",
+    form: await imageForm("cover_image", uri),
   });
 }
 

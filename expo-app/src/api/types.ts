@@ -207,6 +207,8 @@ export interface ApiEvent {
   title: string;
   description?: string;
   event_date: string;
+  /** Absolute URL of the photograph attached when it was published, if any. */
+  cover_image?: string | null;
   scope?: ApiScope;
   assembly: ApiAssemblyMini | null;
   created_by: ApiMemberMini | null;

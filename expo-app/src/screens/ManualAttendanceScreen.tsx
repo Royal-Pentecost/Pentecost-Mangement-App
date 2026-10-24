@@ -7,10 +7,9 @@ import {
   ManualAttendanceReason,
   Member,
   SessionUser,
-  members as allMembers,
 } from "../data";
-import { useContent } from "../store";
 import { useDirectory } from "../directory";
+import { useTodayAttendance } from "../today";
 import * as Api from "../api/resources";
 import { describeError } from "../session";
 import { exportTextFile, stampedName, toCsv } from "../files";
@@ -27,6 +26,12 @@ import {
 import { Avatar, Btn, Card, SectionHeading, TintTile, Txt, tintFg } from "../ui";
 import { ChipRow, ChoiceList, SubmitButton } from "../components/AdminForm";
 
+/** "07:01" from an ISO timestamp, in the phone's own clock. */
+function timeOf(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
 /**
  * Signing on behalf of a member. Some members carry no smartphone, and the
  * auditorium's signal is unreliable — without this, their attendance record
@@ -41,16 +46,23 @@ export default function ManualAttendanceScreen({
   bottomInset: number;
 }) {
   const { c, isDark } = useTheme();
-  const { schedule, manualAttendance, signAttendance, undoAttendance } = useContent();
-  // The congregation as the server knows it; `allMembers` is only the fallback
-  // for the moment before the directory has loaded.
-  const { members: liveRoll } = useDirectory();
-  const roll = liveRoll.length > 0 ? liveRoll : allMembers;
+  // The roll as the server holds it. There is no seeded fallback: a sample
+  // member's id does not exist on the server, so picking one could only fail.
+  const { members: roll, loading: rollLoading } = useDirectory();
+  const today = useTodayAttendance();
+
+  // Everything here is the server's record of today, not this phone's memory.
+  // The log used to live in local state — gone on reload, invisible to the
+  // other admins, and "Undo" removed the line while the mark stayed on the
+  // server.
+  const openSession = today.sessions.find((s) => s.is_active && !s.closed_at) ?? null;
+  const sessionRecords = openSession ? today.records.filter((r) => r.session === openSession.id) : [];
+  const manualEntries = sessionRecords.filter((r) => r.method === "manual");
 
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Member | null>(null);
-  const [service, setService] = useState(schedule[0]?.name ?? "Sunday Service");
   const [status, setStatus] = useState<"present" | "late">("present");
+  const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState<ManualAttendanceReason>("no-phone");
   const [justSigned, setJustSigned] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -64,15 +76,15 @@ export default function ManualAttendanceScreen({
       stampedName("manual-attendance", "csv"),
       "text/csv",
       toCsv(
-        ["Member ID", "Name", "Service", "Status", "Reason", "Signed By", "Time"],
-        manualAttendance.map((r) => [
-          r.memberId,
-          r.memberName,
-          r.service,
-          r.status,
-          MANUAL_REASONS.find((x) => x.id === r.reason)?.label ?? r.reason,
-          r.signedBy,
-          r.at,
+        ["Member ID", "Name", "Service", "Status", "Note", "Signed By", "Time"],
+        manualEntries.map((r) => [
+          r.member?.member_id ?? "",
+          r.member?.full_name ?? "",
+          openSession?.service_name ?? "",
+          (r.note ?? "").toLowerCase().startsWith("late") ? "late" : "present",
+          r.note ?? "",
+          r.recorded_by?.full_name ?? "",
+          timeOf(r.marked_at),
         ]),
       ),
     );
@@ -80,9 +92,11 @@ export default function ManualAttendanceScreen({
     setExporting(false);
   };
 
+  // Anyone already marked for this service, by GPS or by hand — signing them
+  // again would only be refused by the server.
   const signedIds = useMemo(
-    () => new Set(manualAttendance.map((r) => `${r.memberId}:${r.service}`)),
-    [manualAttendance],
+    () => new Set(sessionRecords.map((r) => r.member?.id).filter(Boolean) as string[]),
+    [sessionRecords],
   );
 
   const results = useMemo(() => {
@@ -93,46 +107,53 @@ export default function ManualAttendanceScreen({
       .slice(0, 6);
   }, [query, roll]);
 
-  const alreadySigned = picked ? signedIds.has(`${picked.id}:${service}`) : false;
+  const alreadySigned = picked ? signedIds.has(picked.id) : false;
 
   const submit = async () => {
-    if (!picked) return;
+    if (!picked || busy) return;
 
-    // The override has to reach the server, or the member is marked present on
-    // this phone alone and the record vanishes with the app. The reason travels
-    // with it so the entry can be questioned later.
     setSubmitError(null);
-    const session = await Api.fetchOpenSession().catch(() => null);
-    if (!session) {
-      setSubmitError("No attendance session is open. Start one before signing on a member's behalf.");
+    setJustSigned(null);
+    if (!openSession) {
+      setSubmitError("No attendance session is open. Start one from the home screen first.");
       return;
     }
 
+    // The server has no "late" field, so lateness travels in the note along
+    // with the reason — the part of the record an auditor will actually read.
+    const reasonLabel = MANUAL_REASONS.find((x) => x.id === reason)?.label ?? reason;
+    setBusy(true);
     try {
       await Api.markAttendance({
-        session: session.id,
+        session: openSession.id,
         member: picked.id,
         method: "manual",
-        note: `${MANUAL_REASONS.find((x) => x.id === reason)?.label ?? reason} — signed by ${signedBy.name}`,
+        note: `${status === "late" ? "Late — " : ""}${reasonLabel} — signed by ${signedBy.name}`,
       });
+      await today.refresh();
     } catch (e) {
       setSubmitError(describeError(e));
       return;
+    } finally {
+      setBusy(false);
     }
 
-    signAttendance({
-      memberId: picked.id,
-      memberName: picked.name,
-      service,
-      status,
-      reason,
-      signedBy: signedBy.name,
-    });
     setJustSigned(picked.name);
     setPicked(null);
     setQuery("");
     setStatus("present");
     setReason("no-phone");
+  };
+
+  const undo = async (recordId: string, name: string) => {
+    setSubmitError(null);
+    try {
+      await Api.undoAttendance(recordId);
+      await today.refresh();
+      setJustSigned(null);
+    } catch (e) {
+      setSubmitError(`Could not undo ${name}: ${describeError(e)}`);
+    }
   };
 
   return (
@@ -243,20 +264,24 @@ export default function ManualAttendanceScreen({
         </View>
       ) : query.trim().length > 0 ? (
         <Txt style={{ fontSize: 12.5, textAlign: "center", paddingVertical: 16, color: c.mutedForeground }}>
-          No member matches "{query.trim()}"
+          {rollLoading && roll.length === 0 ? "Loading the roll…" : `No member matches "${query.trim()}"`}
         </Txt>
       ) : null}
 
-      {/* Step 2 — which service */}
+      {/* Step 2 — the service. Not a choice: the server records every mark
+          against the session that is open, so offering a list of services
+          let an admin pick one the mark would never be filed under. */}
       <SectionHeading label="2. Service" />
-      <ChipRow
-        options={[
-          ...schedule.map((s) => ({ id: s.name, label: s.name })),
-          { id: "Sunday Divine Service", label: "Sunday Divine Service" },
-        ].filter((o, i, arr) => arr.findIndex((x) => x.id === o.id) === i)}
-        value={service}
-        onChange={setService}
-      />
+      <Card style={{ padding: 12, flexDirection: "row", alignItems: "center", gap: 11 }}>
+        <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: openSession ? BRAND.green : "#94A3B8" }} />
+        <Txt variant="bodySemi" style={{ flex: 1, fontSize: 13, color: openSession ? c.foreground : c.mutedForeground }}>
+          {openSession
+            ? `${openSession.service_name} \u00b7 opened ${timeOf(openSession.opened_at)}${openSession.opened_by ? ` by ${openSession.opened_by.full_name}` : ""}`
+            : today.loaded
+              ? "No session is open \u2014 start one from the home screen"
+              : "Checking for an open session\u2026"}
+        </Txt>
+      </Card>
 
       <View style={{ height: 14 }} />
       <ChipRow
@@ -275,21 +300,33 @@ export default function ManualAttendanceScreen({
       <View style={{ height: 18 }} />
       {alreadySigned ? (
         <Txt style={{ fontSize: 12.5, textAlign: "center", marginBottom: 10, color: tintFg("amber", isDark) }}>
-          {picked?.name.split(" ")[0]} is already signed in for {service}.
+          {picked?.name.split(" ")[0]} is already signed in for this service.
         </Txt>
       ) : null}
       <SubmitButton
-        label={picked ? `Sign in ${picked.name.split(" ")[0]}` : "Select a member first"}
+        label={busy ? "Signing in\u2026" : picked ? `Sign in ${picked.name.split(" ")[0]}` : "Select a member first"}
         onPress={submit}
-        disabled={!picked || alreadySigned}
+        disabled={!picked || alreadySigned || busy || !openSession}
         Icon={CheckCircleIcon}
       />
+
+      {/* Repeated beside the button: the card at the top of the page is a
+          long scroll away from here, so a refusal looked like nothing at all. */}
+      {submitError ? (
+        <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, marginTop: 10, textAlign: "center", color: isDark ? "#FCA5A5" : BRAND.red }}>
+          {submitError}
+        </Txt>
+      ) : justSigned ? (
+        <Txt variant="bodySemi" style={{ fontSize: 12.5, marginTop: 10, textAlign: "center", color: tintFg("green", isDark) }}>
+          {justSigned} has been signed in.
+        </Txt>
+      ) : null}
 
       {/* The audit trail */}
       <SectionHeading
         label="Signed by admins"
         trailing={
-          manualAttendance.length > 0 ? (
+          manualEntries.length > 0 ? (
             <Btn
               onPress={exportLog}
               disabled={exporting}
@@ -305,7 +342,7 @@ export default function ManualAttendanceScreen({
             >
               <DownloadIcon size={13} color={c.mutedForeground} />
               <Txt variant="bodySemi" style={{ fontSize: 11.5, color: c.mutedForeground }}>
-                {exporting ? "Preparing…" : `Export ${manualAttendance.length}`}
+                {exporting ? "Preparing…" : `Export ${manualEntries.length}`}
               </Txt>
             </Btn>
           ) : (
@@ -327,7 +364,7 @@ export default function ManualAttendanceScreen({
         </Card>
       ) : null}
 
-      {manualAttendance.length === 0 ? (
+      {manualEntries.length === 0 ? (
         <Card style={{ padding: 24, alignItems: "center" }}>
           <TintTile tint="blue" size={52} radius={26}>
             <UsersIcon size={22} color={tintFg("blue", isDark)} />
@@ -341,9 +378,10 @@ export default function ManualAttendanceScreen({
         </Card>
       ) : (
         <View style={{ gap: 10 }}>
-          {manualAttendance.map((r) => {
-            const tint = r.status === "present" ? "green" : "amber";
-            const reasonLabel = MANUAL_REASONS.find((x) => x.id === r.reason)?.label ?? r.reason;
+          {manualEntries.map((r) => {
+            const late = (r.note ?? "").toLowerCase().startsWith("late");
+            const tint = late ? "amber" : "green";
+            const name = r.member?.full_name ?? "Member";
 
             return (
               <Card key={r.id} style={{ padding: 11, flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -353,21 +391,21 @@ export default function ManualAttendanceScreen({
 
                 <View style={{ flex: 1 }}>
                   <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>
-                    {r.memberName}
+                    {name}
                   </Txt>
                   <Txt variant="bodyMedium" style={{ fontSize: 11.5, marginTop: 2, color: c.mutedForeground }}>
-                    {r.service} · {reasonLabel}
+                    {r.note || openSession?.service_name}
                   </Txt>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 }}>
                     <ClockIcon size={11} color={c.mutedForeground} />
                     <Txt variant="bodyMedium" style={{ fontSize: 11, color: c.mutedForeground }}>
-                      {r.at} · by {r.signedBy}
+                      {timeOf(r.marked_at)}{r.recorded_by ? ` \u00b7 by ${r.recorded_by.full_name}` : ""}
                     </Txt>
                   </View>
                 </View>
 
                 <Btn
-                  onPress={() => undoAttendance(r.id)}
+                  onPress={() => void undo(r.id, name)}
                   style={{
                     paddingHorizontal: 11,
                     paddingVertical: 7,

@@ -76,10 +76,11 @@ interface ContentState {
   milestoneLog: MilestoneRecord[];
   logMilestone: (m: { member: string; milestone: MilestoneLabel; loggedBy: string }) => void;
 
-  addService: (s: Omit<ServiceSlot, "id">) => void;
+  /** Resolves true once the server has it — photo included — and false with `publishError` set. */
+  addService: (s: Omit<ServiceSlot, "id">) => Promise<boolean>;
   removeService: (id: string) => void;
 
-  addEvent: (e: Omit<UpcomingEvent, "id" | "tint">) => void;
+  addEvent: (e: Omit<UpcomingEvent, "id" | "tint">) => Promise<boolean>;
   removeEvent: (id: string) => void;
 
   addStudy: (s: Omit<BibleStudy, "id">) => void;
@@ -172,11 +173,54 @@ export function toApiTime(label: string): string | null {
  * The app writes dates the way a person reads them ("12 Nov"); the server wants
  * ISO. A date with no year is taken as this year.
  */
-function isoDate(label: string): string {
-  const parsed = new Date(`${label} ${new Date().getFullYear()}`);
-  return Number.isNaN(parsed.getTime())
-    ? new Date().toISOString().slice(0, 10)
-    : parsed.toISOString().slice(0, 10);
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/**
+ * An event date as typed into the form, as `YYYY-MM-DD` — or null.
+ *
+ * Parsed by hand. This used `new Date("Sep 14 2026")`, which a desktop browser
+ * understands and Hermes — the engine on the phone — does not reliably; when
+ * it failed, the code quietly used *today*, so an event typed for September
+ * was published for the day it was typed. Unreadable now means "say so".
+ *
+ * Takes "Sep 14", "14 Sep", "September 14", "14/09", "14-09-2026" and
+ * "2026-09-14". With no year, the next occurrence of that day is meant —
+ * nobody publishes an upcoming event for last March.
+ */
+export function parseEventDate(label: string, now = new Date()): string | null {
+  const t = (label || "").trim().toLowerCase().replace(/,/g, " ").replace(/\s+/g, " ");
+  if (!t) return null;
+
+  let y: number | null = null;
+  let m: number | null = null;
+  let d: number | null = null;
+
+  const iso = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const numeric = t.match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/);
+  const monthFirst = t.match(/^([a-z]{3,})\.? (\d{1,2})(?:st|nd|rd|th)?(?: (\d{4}))?$/);
+  const dayFirst = t.match(/^(\d{1,2})(?:st|nd|rd|th)? ([a-z]{3,})\.?(?: (\d{4}))?$/);
+  const monthIndex = (word: string) => {
+    const i = MONTHS.indexOf(word.slice(0, 3));
+    return i >= 0 ? i + 1 : null;
+  };
+
+  if (iso) [y, m, d] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+  // Day first, as Ghana writes it: 14/09 is the fourteenth of September.
+  else if (numeric) [d, m, y] = [Number(numeric[1]), Number(numeric[2]), numeric[3] ? Number(numeric[3]) : null];
+  else if (monthFirst) [m, d, y] = [monthIndex(monthFirst[1]), Number(monthFirst[2]), monthFirst[3] ? Number(monthFirst[3]) : null];
+  else if (dayFirst) [d, m, y] = [Number(dayFirst[1]), monthIndex(dayFirst[2]), dayFirst[3] ? Number(dayFirst[3]) : null];
+
+  if (!m || !d || m > 12 || d > 31) return null;
+  if (y !== null && y < 100) y += 2000;
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let year = y ?? now.getFullYear();
+  if (y === null && new Date(year, m - 1, d) < today) year += 1;
+
+  const date = new Date(year, m - 1, d);
+  // Rejects 31 September rather than rolling it over into October.
+  if (date.getMonth() !== m - 1 || date.getDate() !== d) return null;
+  return `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 const EVENT_TINTS = ["amber", "blue", "violet", "green"] as const;
@@ -291,7 +335,7 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   }, [sessionStatus, refreshContent]);
 
   const addService = useCallback(
-    (s: Omit<ServiceSlot, "id">) => {
+    async (s: Omit<ServiceSlot, "id">): Promise<boolean> => {
       // Shown immediately so the form feels answered, then reconciled with the
       // server's own record — which carries the id every other device will use.
       setSchedule((list) => [...list, { ...s, id: nextId("s") }]);
@@ -307,29 +351,53 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
             ? `Could not read "${s.day}" as a day. Try "Sunday" or "Mon-Wed".`
             : `Could not read "${s.time}" as a time. Try "7:00 PM" or "19:00".`,
         );
-        return;
+        await refreshContent();
+        return false;
       }
 
-      void Api.createSchedule({
-        assembly_id: assemblyId ?? undefined,
-        name: s.name,
-        location: s.venue,
-        time,
-        start_weekday: start,
-        end_weekday: end ?? start,
-      })
-        .then(() => {
+      {
+        try {
+          const created = await Api.createSchedule({
+            assembly_id: assemblyId ?? undefined,
+            name: s.name,
+            location: s.venue,
+            time,
+            start_weekday: start,
+            end_weekday: end ?? start,
+          });
+          // The photograph goes up once the service exists to attach it to.
+          // Without this the cover never left the publishing phone.
+          if (s.cover) {
+            try {
+              await Api.uploadScheduleCover(created.id, s.cover);
+            } catch (e) {
+              setPublishError(`${s.name} was published, but its photo did not upload: ${describeError(e)}`);
+              await refreshContent();
+              return false;
+            }
+          }
           setPublishError(null);
-          return refreshContent();
-        })
-        .catch((e) => setPublishError(describeError(e)));
+          await refreshContent();
+        } catch (e) {
+          setPublishError(describeError(e));
+          // Take back the optimistic row, or the admin sees a service no other
+          // phone ever will.
+          await refreshContent();
+          return false;
+        }
+      }
+      // Announced only once it is real — a notification for a refused publish
+      // sent members looking for something that was never there.
       announce({
         kind: "event",
         title: `${s.name} added to the schedule`,
         body: `${s.day} at ${s.time}${s.venue ? ` — ${s.venue}` : ""}.`,
       });
+      return true;
     },
-    [announce, refreshContent],
+    // `assemblyId` belongs here: left out, the callback kept the value from
+    // before sign-in finished — none — and the server refused the publish.
+    [announce, refreshContent, assemblyId],
   );
 
   const removeService = useCallback(async (id: string) => {
@@ -338,27 +406,53 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addEvent = useCallback(
-    (e: Omit<UpcomingEvent, "id" | "tint">) => {
+    async (e: Omit<UpcomingEvent, "id" | "tint">): Promise<boolean> => {
+      const eventDate = parseEventDate(e.date);
+      if (!eventDate) {
+        setPublishError(`Could not read "${e.date}" as a date. Try "Sep 14" or "14/09/2026".`);
+        return false;
+      }
+
       setEvents((list) => [
         ...list,
         { ...e, id: nextId("ev"), tint: EVENT_TINTS[list.length % EVENT_TINTS.length] },
       ]);
 
-      void Api.createEvent({
-        assembly_id: assemblyId ?? undefined,
-        title: e.name,
-        description: e.tag,
-        event_date: isoDate(e.date),
-      })
-        .then(() => refreshContent())
-        .catch((err) => setPublishError(describeError(err)));
+      {
+        try {
+          const created = await Api.createEvent({
+            assembly_id: assemblyId ?? undefined,
+            title: e.name,
+            description: e.tag,
+            event_date: eventDate,
+          });
+          if (e.cover) {
+            try {
+              await Api.uploadEventCover(created.id, e.cover);
+            } catch (err) {
+              setPublishError(`${e.name} was published, but its photo did not upload: ${describeError(err)}`);
+              await refreshContent();
+              return false;
+            }
+          }
+          setPublishError(null);
+          await refreshContent();
+        } catch (err) {
+          setPublishError(describeError(err));
+          // Take back the optimistic row, or the admin sees an event that no
+          // other phone ever will.
+          await refreshContent();
+          return false;
+        }
+      }
       announce({
         kind: "event",
         title: e.name,
         body: `${e.tag} event on ${e.date}. Tap for details.`,
       });
+      return true;
     },
-    [announce, refreshContent],
+    [announce, refreshContent, assemblyId],
   );
 
   const removeEvent = useCallback(async (id: string) => {
