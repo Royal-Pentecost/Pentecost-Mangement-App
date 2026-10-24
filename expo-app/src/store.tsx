@@ -25,7 +25,6 @@ import {
   bibleStudies as seedStudies,
   defaultGeofence,
   members as seedMembers,
-  studyReleased,
   homeSlides as seedSlides,
   notifications as seedNotifications,
   upcomingEvents as seedEvents,
@@ -623,20 +622,10 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
     setNotifications([]);
   }, []);
 
-  const slides = useMemo<Slide[]>(() => {
-    const published: Slide[] = [
-      ...events
-        .filter((e) => e.cover)
-        .map((e) => ({ id: `sl-${e.id}`, source: { uri: e.cover! }, label: e.name, caption: `${e.tag} · ${e.date}` })),
-      ...schedule
-        .filter((s) => s.cover)
-        .map((s) => ({ id: `sl-${s.id}`, source: { uri: s.cover! }, label: s.name, caption: `${s.day} · ${s.time}` })),
-      ...studies
-        .filter((s) => s.cover && studyReleased(s))
-        .map((s) => ({ id: `sl-${s.id}`, source: { uri: s.cover! }, label: s.en.title, caption: `Week ${s.weekNumber} · ${s.en.chapter}` })),
-    ];
-    return [...published, ...seedSlides];
-  }, [events, schedule, studies]);
+  // The four ministries, fixed. Published covers used to be pushed in front of
+  // them, so every service or event an admin added took over the slider; they
+  // now appear only on their own tile and card.
+  const slides = seedSlides;
 
   const value = useMemo<ContentState>(
     () => ({

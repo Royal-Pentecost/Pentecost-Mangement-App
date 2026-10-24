@@ -834,12 +834,20 @@ export function imageSource(cover?: string, fallback?: number) {
 }
 
 /** Carousel slides on the dashboard — a different set from the login backdrop. */
+/**
+ * The dashboard slider: the assembly's four ministries, always these, always
+ * in this order. Published content does not join it — a service or event
+ * shows its photo on its own tile and card instead.
+ *
+ * `assets/ministry/*` are crops cut to the slider card's ~1.75:1, so `cover`
+ * frames the people rather than guessing at the middle of a portrait. To
+ * replace one, keep the file name and that shape.
+ */
 export const homeSlides: Slide[] = [
-  { id: "hs1", source: require("../assets/home/home-1.jpg"), label: "Arise & Shine" },
-  { id: "hs2", source: require("../assets/home/home-2.jpg"), label: "Fellowship" },
-  { id: "hs3", source: require("../assets/home/home-3.jpg"), label: "Sunday Service" },
-  { id: "hs4", source: require("../assets/home/home-4.jpg"), label: "Youth Ministry" },
-  { id: "hs5", source: require("../assets/home/home-5.jpg"), label: "Youth Week" },
+  { id: "min-men", source: require("../assets/ministry/mens.jpg"), label: "Men's Ministry" },
+  { id: "min-women", source: require("../assets/ministry/womens.jpg"), label: "Women's Ministry" },
+  { id: "min-youth", source: require("../assets/ministry/youth.jpg"), label: "Youth Ministry" },
+  { id: "min-children", source: require("../assets/ministry/children.jpg"), label: "Children's Ministry" },
 ];
 
 export interface ServiceSlot {

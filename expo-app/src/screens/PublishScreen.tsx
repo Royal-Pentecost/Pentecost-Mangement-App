@@ -236,7 +236,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     setSTime("");
     setSVenue("");
     setSCover(undefined);
-    flash(sCover ? "Service published — the photo is now in the dashboard slider" : "Service published to every member's dashboard");
+    flash(sCover ? "Service published — its photo is on the schedule tile" : "Service published to every member's dashboard");
   };
 
   const saveEvent = async () => {
@@ -250,7 +250,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     setEName("");
     setETag("");
     setECover(undefined);
-    flash(eCover ? "Event published — the photo is now in the dashboard slider" : "Event published to every member's dashboard");
+    flash(eCover ? "Event published — its photo is on the event card" : "Event published to every member's dashboard");
   };
 
   const saveStudy = () => {
@@ -282,7 +282,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     setEn(emptyStudyForm());
     setTw(emptyStudyForm());
     setStudyLang("en");
-    flash(bCover ? "Study released — the photo is now in the dashboard slider" : "Bible study released to every member's dashboard");
+    flash(bCover ? "Study released — its photo opens the study guide" : "Bible study released to every member's dashboard");
   };
 
   const saveVerse = () => {
@@ -391,7 +391,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
             </View>
             <Field label="Service name" value={sName} onChangeText={setSName} placeholder="Divine Service" />
             <Field label="Venue" value={sVenue} onChangeText={setSVenue} placeholder="Royal Assembly" />
-            <CoverPicker value={sCover} onChange={setSCover} />
+            <CoverPicker value={sCover} onChange={setSCover} hint="Shown on this service's schedule tile" />
             <SubmitButton label={publishing ? "Publishing…" : "Publish service"} onPress={saveService} disabled={!scheduleReady || publishing} Icon={PlusIcon} />
             <PublishProblem message={publishError} />
           </Card>
@@ -431,7 +431,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
               <Field label="Category" value={eTag} onChangeText={setETag} placeholder="District" style={{ flex: 1 }} />
             </View>
             <Field label="Event name" value={eName} onChangeText={setEName} placeholder="Harvest Festival" />
-            <CoverPicker value={eCover} onChange={setECover} />
+            <CoverPicker value={eCover} onChange={setECover} hint="Shown on the event's card" />
             <SubmitButton label={publishing ? "Publishing…" : "Publish event"} onPress={saveEvent} disabled={!eventReady || publishing} Icon={PlusIcon} />
             <PublishProblem message={publishError} />
           </Card>
@@ -552,7 +552,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
               </Txt>
             ) : null}
 
-            <CoverPicker value={bCover} onChange={setBCover} />
+            <CoverPicker value={bCover} onChange={setBCover} hint="Shown at the top of the study guide" />
             <SubmitButton label="Release study" onPress={saveStudy} disabled={!studyReady} Icon={PlusIcon} />
           </Card>
 

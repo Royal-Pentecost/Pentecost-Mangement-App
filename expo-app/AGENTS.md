@@ -84,10 +84,12 @@ constants. `data.ts` only seeds it. `MyDashboard` and `NotificationsScreen` read
 Adding a service, event, or study also pushes a notification, so members are told without being
 asked to go looking. Swap the seeds for a fetch when the backend lands and the screens do not change.
 
-Every published item can carry a `cover` — a photograph the admin attaches in `CoverPicker`, stored as a
-file URI. Covers feed `useContent().slides`, which is what the dashboard carousel renders: published
-covers first, then the seeded `homeSlides`. Bundled art is a `require()` number and a picked photo is a
-`{ uri }`, so resolve the two through `imageSource(cover, fallback)` rather than branching inline.
+Every published item can carry a `cover` — a photograph the admin attaches in `CoverPicker`. It is
+uploaded to the server after the item is created and shown with that item: a service's schedule tile, an
+event's card, the top of a study guide. Covers do **not** go into the dashboard slider — that is the four
+ministries in `homeSlides`, fixed, and publishing must never change it. Bundled art is a `require()`
+number and a picked photo is a `{ uri }`, so resolve the two through `imageSource(cover, fallback)`
+rather than branching inline.
 
 Two admin tools hang off `AdminHub`, both reached through `SubScreen` (`manualAttendance`, `publish`):
 
@@ -157,8 +159,11 @@ member recognises the destination before tapping. Every one of those buttons ope
 
 ## Photographs
 
-`assets/slider/*` backs the login/OTP backdrop via `sliderPhotos`; `assets/home/*` backs the dashboard
-carousel via `homeSlides` — deliberately different photographs so the two sliders never repeat. Also
+`assets/slider/*` backs the login/OTP backdrop via `sliderPhotos`; `assets/ministry/*` backs the dashboard
+carousel via `homeSlides` — Men's, Women's, Youth and Children's Ministry, in that order. Those four are crops
+cut to the carousel card's ~1.75:1 so `cover` frames the people; a replacement keeps the file name and that
+shape. Two are cut from login photographs (the Women's Ministry headscarf and the youngest member pictured),
+so those two images appear in both sliders until the church supplies its own. Also
 `assets/service/*` for the weekly-service tiles, `assets/assembly/*` for the picker cards, and
 `assets/welcome-bg.jpg` for the post-login splash — that one is drawn `cover` behind a full-screen
 scrim, so it **must be portrait**: a landscape photo loses ~70% of its width to the crop on any phone.
