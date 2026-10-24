@@ -1103,22 +1103,31 @@ export default function MyDashboard({
       {/* The whole term's guide */}
       <SectionHeading label="Bible Study Guide" />
 
-      <LinearGradient
-        colors={isDark ? ["#78350F", "#1B2437"] : ["#FEF3C7", "#FDE68A"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ borderRadius: RADIUS.xl, padding: 17 }}
-      >
-        <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: isDark ? BRAND.goldLight : "#92400E" }}>
-          August Theme
-        </Txt>
-        <Txt variant="displayExtraBold" style={{ fontSize: 21, marginTop: 8, lineHeight: 27, color: isDark ? "#FDE68A" : "#78350F" }}>
-          Growing in Grace &amp; Knowledge
-        </Txt>
-        <Txt variant="bodyMedium" style={{ fontSize: 12.5, marginTop: 8, color: isDark ? "#FCD34D" : "#92400E" }}>
-          2 Peter 3:18 · August Series
-        </Txt>
-      </LinearGradient>
+      {/* The term's theme, when the office published one. This was the fixed
+          text "August Theme · Growing in Grace & Knowledge" in every month. */}
+      {thisWeek?.theme ? (
+        <LinearGradient
+          colors={isDark ? ["#78350F", "#1B2437"] : ["#FEF3C7", "#FDE68A"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ borderRadius: RADIUS.xl, padding: 17 }}
+        >
+          <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: isDark ? BRAND.goldLight : "#92400E" }}>
+            Theme
+          </Txt>
+          <Txt variant="displayExtraBold" style={{ fontSize: 21, marginTop: 8, lineHeight: 27, color: isDark ? "#FDE68A" : "#78350F" }}>
+            {thisWeek.theme}
+          </Txt>
+        </LinearGradient>
+      ) : null}
+
+      {bibleStudies.length === 0 ? (
+        <Card style={{ padding: 16, alignItems: "center" }}>
+          <Txt variant="bodyMedium" style={{ fontSize: 12.5, textAlign: "center", color: c.mutedForeground }}>
+            No Bible study has been published yet
+          </Txt>
+        </Card>
+      ) : null}
 
       {pdfStatus ? (
         <Card style={{ marginTop: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 11 }}>

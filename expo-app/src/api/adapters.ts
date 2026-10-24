@@ -9,10 +9,14 @@ import {
   ServiceSlot,
   UpcomingEvent,
   AppNotification,
+  BibleStudy,
+  DailyVerse,
+  StudyText,
 } from "../data";
 import {
   ApiAttendanceRecord,
   ApiBibleStudyWeek,
+  ApiDailyVerse,
   ApiElder,
   ApiEvent,
   ApiMember,
@@ -357,5 +361,60 @@ export function toStudyWeek(s: ApiBibleStudyWeek): StudyWeek {
         },
       ]),
     ),
+  };
+}
+
+// ─── Bible study and the daily verse, as the screens read them ───────────────
+
+/**
+ * A server week as the app's `BibleStudy`.
+ *
+ * The week holds the pamphlet facts; the aims, questions and memory verse
+ * live in an optional translation per language. A week with no English text
+ * still shows its title and scripture, and Twi falls back to English — the
+ * same rule the publish form has always used — so a reader never meets a
+ * blank card.
+ */
+export function toBibleStudy(s: ApiBibleStudyWeek): BibleStudy {
+  const byLang = new Map((s.translations ?? []).map((t) => [t.language, t]));
+  const textFor = (lang: "en" | "tw"): StudyText | null => {
+    const t = byLang.get(lang);
+    if (!t) return null;
+    return {
+      title: t.title || s.title,
+      chapter: s.scripture_reference,
+      aims: t.aims ?? [],
+      questions: t.questions ?? [],
+      memoryVerse: t.memory_verse ?? "",
+      notes: t.notes || undefined,
+    };
+  };
+  const en: StudyText = textFor("en") ?? {
+    title: s.title,
+    chapter: s.scripture_reference,
+    aims: [],
+    questions: [],
+    memoryVerse: "",
+  };
+  return {
+    id: s.id,
+    weekNumber: s.week_number,
+    date: s.study_date,
+    pages: s.page_range || "—",
+    available: s.is_published ?? false,
+    cover: s.cover_image ?? undefined,
+    theme: s.theme || undefined,
+    en,
+    tw: textFor("tw") ?? en,
+  };
+}
+
+export function toDailyVerse(v: ApiDailyVerse): DailyVerse {
+  return {
+    id: v.id,
+    reference: v.reference,
+    english: v.english,
+    twi: v.twi,
+    publishedOn: v.published_on,
   };
 }

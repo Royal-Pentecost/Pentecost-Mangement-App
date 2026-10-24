@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { AppState } from "react-native";
 
 import * as Api from "./api/resources";
-import { toEvent, toNotification, toServiceSlot } from "./api/adapters";
+import { toBibleStudy, toDailyVerse, toEvent, toNotification, toServiceSlot } from "./api/adapters";
 import { ApiWeekday } from "./api/types";
 import { describeError } from "./session";
 import { useSession } from "./session";
@@ -10,6 +10,7 @@ import { useSession } from "./session";
 import {
   AppNotification,
   BibleStudy,
+  StudyText,
   DailyVerse,
   Geofence,
   Lang,
@@ -22,7 +23,6 @@ import {
   Slide,
   UpcomingEvent,
   avatarColors,
-  bibleStudies as seedStudies,
   defaultGeofence,
   members as seedMembers,
   homeSlides as seedSlides,
@@ -44,8 +44,9 @@ interface ContentState {
   manualAttendance: ManualAttendanceRecord[];
   notifications: AppNotification[];
   dailyVerse: DailyVerse | null;
-  publishDailyVerse: (input: { english: string; twi: string; reference: string }) => void;
-  removeDailyVerse: () => void;
+  /** Resolves true once every phone can see it; false with `publishError` set. */
+  publishDailyVerse: (input: { english: string; twi: string; reference: string }) => Promise<boolean>;
+  removeDailyVerse: () => Promise<void>;
   /** The dashboard carousel: the seeded photographs plus every cover an admin has attached. */
   slides: Slide[];
   /** The language members read the study guide in. */
@@ -82,9 +83,10 @@ interface ContentState {
   addEvent: (e: Omit<UpcomingEvent, "id" | "tint">) => Promise<boolean>;
   removeEvent: (id: string) => void;
 
-  addStudy: (s: Omit<BibleStudy, "id">) => void;
-  removeStudy: (id: string) => void;
-  toggleStudy: (id: string) => void;
+  /** Resolves true once the server has the study, its text and its photo. */
+  addStudy: (s: Omit<BibleStudy, "id">) => Promise<boolean>;
+  removeStudy: (id: string) => Promise<void>;
+  toggleStudy: (id: string) => Promise<void>;
 
   signAttendance: (input: {
     memberId: string;
@@ -253,7 +255,9 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   // soon as the member is signed in.
   const [schedule, setSchedule] = useState<ServiceSlot[]>(seedSchedule);
   const [events, setEvents] = useState<UpcomingEvent[]>(seedEvents);
-  const [studies, setStudies] = useState<BibleStudy[]>(seedStudies);
+  // From the server only. The sample studies seeded here were what every
+  // dashboard showed — invented weeks beside, or instead of, the real ones.
+  const [studies, setStudies] = useState<BibleStudy[]>([]);
   const [manualAttendance, setManualAttendance] = useState<ManualAttendanceRecord[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>(seedNotifications);
   const [dailyVerse, setDailyVerse] = useState<DailyVerse | null>(null);
@@ -278,16 +282,22 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   const clearPublishError = useCallback(() => setPublishError(null), []);
 
   const refreshContent = useCallback(async () => {
-    const [apiSchedules, apiEvents, apiNotifications, apiReads, apiAssembly] = await Promise.all([
+    const [apiSchedules, apiEvents, apiNotifications, apiReads, apiAssembly, apiStudies, apiVerses] = await Promise.all([
       Api.fetchSchedules().catch(() => null),
       Api.fetchEvents().catch(() => null),
       Api.fetchNotifications().catch(() => null),
       Api.fetchNotificationReads().catch(() => []),
       assemblyId ? Api.fetchAssembly(assemblyId).catch(() => null) : Promise.resolve(null),
+      Api.fetchStudies().catch(() => null),
+      Api.fetchDailyVerses().catch(() => null),
     ]);
 
     if (apiSchedules) setSchedule(apiSchedules.map(toServiceSlot));
     if (apiEvents) setEvents(apiEvents.map(toEvent));
+    // Bible studies and the daily verse used to live only in the publishing
+    // admin's app: "published" on their phone, absent from everyone else's.
+    if (apiStudies) setStudies(apiStudies.map(toBibleStudy).sort((a, b) => a.date.localeCompare(b.date)));
+    if (apiVerses) setDailyVerse(apiVerses[0] ? toDailyVerse(apiVerses[0]) : null);
 
     // The assembly's standing fence. An admin's edit in the hub was saved to
     // the server but never read back, so every launch began from the seeded
@@ -462,8 +472,51 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addStudy = useCallback(
-    (s: Omit<BibleStudy, "id">) => {
-      setStudies((list) => [...list, { ...s, id: nextId("b") }]);
+    async (s: Omit<BibleStudy, "id">): Promise<boolean> => {
+      try {
+        // The pamphlet facts first, then each language's text, then the photo
+        // — each needs the week to exist.
+        const week = await Api.createStudy({
+          assembly_id: assemblyId ?? undefined,
+          week_number: s.weekNumber,
+          title: s.en.title,
+          scripture_reference: s.en.chapter,
+          page_range: s.pages === "\u2014" ? "" : s.pages,
+          study_date: s.date,
+          theme: s.theme ?? "",
+          is_published: s.available,
+        });
+        const body = (t: StudyText) => ({
+          title: t.title,
+          aims: t.aims,
+          questions: t.questions,
+          memory_verse: t.memoryVerse,
+          notes: t.notes ?? "",
+        });
+        await Api.createStudyText({ week: week.id, language: "en", ...body(s.en) });
+        // Twi only when it was actually written. The form fills a blank Twi
+        // column from the English, and storing that copy would make the
+        // English look like the Twi text forever after.
+        if (JSON.stringify(body(s.tw)) !== JSON.stringify(body(s.en))) {
+          await Api.createStudyText({ week: week.id, language: "tw", ...body(s.tw) });
+        }
+        if (s.cover) {
+          try {
+            await Api.uploadStudyCover(week.id, s.cover);
+          } catch (e) {
+            setPublishError(`Week ${s.weekNumber} was published, but its photo did not upload: ${describeError(e)}`);
+            await refreshContent();
+            return false;
+          }
+        }
+      } catch (e) {
+        setPublishError(describeError(e));
+        await refreshContent();
+        return false;
+      }
+
+      setPublishError(null);
+      await refreshContent();
       if (s.available) {
         announce({
           kind: "study",
@@ -471,45 +524,69 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
           body: `"${s.en.title}" — ${s.en.chapter}. Tap to read the full guide.`,
         });
       }
+      return true;
     },
-    [announce],
+    [announce, refreshContent, assemblyId],
   );
 
-  const publishDailyVerse = useCallback<ContentState["publishDailyVerse"]>((input) => {
-    const publishedOn = new Date().toISOString().slice(0, 10);
-    const verse = { ...input, id: nextId("verse"), publishedOn };
-    setDailyVerse(verse);
-    announce({
-      kind: "verse",
-      title: "Today's verse is here",
-      body: `${verse.reference} — ${verse.english}`,
-    });
-  }, [announce]);
+  const publishDailyVerse = useCallback<ContentState["publishDailyVerse"]>(
+    async (input) => {
+      try {
+        await Api.createDailyVerse({ assembly_id: assemblyId ?? undefined, ...input });
+      } catch (e) {
+        setPublishError(describeError(e));
+        return false;
+      }
+      setPublishError(null);
+      await refreshContent();
+      announce({
+        kind: "verse",
+        title: "Today's verse is here",
+        body: `${input.reference} — ${input.english}`,
+      });
+      return true;
+    },
+    [announce, refreshContent, assemblyId],
+  );
 
-  const removeDailyVerse = useCallback(() => {
+  const removeDailyVerse = useCallback(async () => {
+    const current = dailyVerse;
     setDailyVerse(null);
     setNotifications((list) => list.filter((item) => item.kind !== "verse"));
-  }, []);
+    if (current) await Api.deleteDailyVerse(current.id).catch((e) => setPublishError(describeError(e)));
+    // An older verse, if there is one, becomes the current one again.
+    await refreshContent();
+  }, [dailyVerse, refreshContent]);
 
-  const removeStudy = useCallback((id: string) => {
+  const removeStudy = useCallback(async (id: string) => {
     setStudies((list) => list.filter((s) => s.id !== id));
-  }, []);
+    await Api.deleteStudy(id).catch((e) => setPublishError(describeError(e)));
+    await refreshContent();
+  }, [refreshContent]);
 
   const toggleStudy = useCallback(
-    (id: string) => {
-      setStudies((list) => {
-        const target = list.find((s) => s.id === id);
-        if (target && !target.available) {
-          announce({
-            kind: "study",
-            title: `Week ${target.weekNumber} Bible study is ready`,
-            body: `"${target.en.title}" — ${target.en.chapter}. Tap to read the full guide.`,
-          });
-        }
-        return list.map((s) => (s.id === id ? { ...s, available: !s.available } : s));
-      });
+    async (id: string) => {
+      const target = studies.find((s) => s.id === id);
+      if (!target) return;
+      const available = !target.available;
+      setStudies((list) => list.map((s) => (s.id === id ? { ...s, available } : s)));
+      try {
+        // On the server, so releasing early reaches every phone, not this one.
+        await Api.updateStudy(id, { is_published: available });
+      } catch (e) {
+        setPublishError(describeError(e));
+        await refreshContent();
+        return;
+      }
+      if (available) {
+        announce({
+          kind: "study",
+          title: `Week ${target.weekNumber} Bible study is ready`,
+          body: `"${target.en.title}" — ${target.en.chapter}. Tap to read the full guide.`,
+        });
+      }
     },
-    [announce],
+    [announce, studies, refreshContent],
   );
 
   const signAttendance = useCallback<ContentState["signAttendance"]>((input) => {

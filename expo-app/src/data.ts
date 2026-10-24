@@ -1006,6 +1006,8 @@ export interface BibleStudy {
   available: boolean;
   /** A photograph the admin attached when publishing, as a file URI. */
   cover?: string;
+  /** The term's theme, when the office gave one — "Growing in Grace & Knowledge". */
+  theme?: string;
   en: StudyText;
   tw: StudyText;
 }

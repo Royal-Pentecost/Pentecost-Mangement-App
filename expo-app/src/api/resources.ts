@@ -5,6 +5,7 @@ import {
   ApiAttendanceRecord,
   ApiAttendanceSession,
   ApiBibleStudyWeek,
+  ApiDailyVerse,
   ApiDayBornGroup,
   ApiElder,
   ApiEvent,
@@ -14,6 +15,7 @@ import {
   ApiNotificationRead,
   ApiSpiritualMilestone,
   ApiWeeklySchedule,
+  Paginated,
 } from "./types";
 
 /**
@@ -334,11 +336,53 @@ export const createEvent = (body: EventInput) =>
 export const deleteEvent = (id: string) =>
   request<void>(`/api/v1/content/events/${encodeURIComponent(id)}/`, { method: "DELETE" });
 
-export const createStudy = (body: Partial<ApiBibleStudyWeek>) =>
+/** The pamphlet facts for one week. The written-out text follows per language. */
+export interface StudyInput {
+  assembly_id?: string;
+  week_number: number;
+  title: string;
+  scripture_reference: string;
+  page_range?: string;
+  study_date: string;
+  theme?: string;
+  is_published: boolean;
+}
+
+export const createStudy = (body: StudyInput) =>
   request<ApiBibleStudyWeek>("/api/v1/content/bible-study-weeks/", { method: "POST", body });
+
+/** Release early, or take back — `is_published` is the "available" switch. */
+export const updateStudy = (id: string, body: Partial<StudyInput>) =>
+  request<ApiBibleStudyWeek>(`/api/v1/content/bible-study-weeks/${encodeURIComponent(id)}/`, { method: "PATCH", body });
 
 export const deleteStudy = (id: string) =>
   request<void>(`/api/v1/content/bible-study-weeks/${encodeURIComponent(id)}/`, { method: "DELETE" });
+
+/** One language's aims, questions and memory verse for a week. */
+export const createStudyText = (body: {
+  week: string;
+  language: "en" | "tw";
+  title: string;
+  aims: string[];
+  questions: string[];
+  memory_verse: string;
+  notes: string;
+}) => request("/api/v1/content/bible-study-text/", { method: "POST", body });
+
+export const uploadStudyCover = (id: string, uri: string) =>
+  uploadImage<ApiBibleStudyWeek>(`/api/v1/content/bible-study-weeks/${encodeURIComponent(id)}/`, "cover_image", uri);
+
+// ─── Daily verse ─────────────────────────────────────────────────────────────
+
+/** Newest first; the app shows the first. One page is plenty. */
+export const fetchDailyVerses = () =>
+  request<Paginated<ApiDailyVerse>>("/api/v1/content/daily-verses/").then((p) => p.results ?? []);
+
+export const createDailyVerse = (body: { assembly_id?: string; reference: string; english: string; twi: string }) =>
+  request<ApiDailyVerse>("/api/v1/content/daily-verses/", { method: "POST", body });
+
+export const deleteDailyVerse = (id: string) =>
+  request<void>(`/api/v1/content/daily-verses/${encodeURIComponent(id)}/`, { method: "DELETE" });
 
 // ─── Notifications ───────────────────────────────────────────────────────────
 

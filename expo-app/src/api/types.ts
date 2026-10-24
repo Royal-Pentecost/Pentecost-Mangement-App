@@ -242,7 +242,8 @@ export interface ApiStudyTranslation {
 
 export interface ApiBibleStudyWeek {
   id: string;
-  assembly: ApiAssemblyMini;
+  /** Null for a district-wide study. */
+  assembly: ApiAssemblyMini | null;
   theme: string;
   week_number: number;
   title: string;
@@ -250,6 +251,8 @@ export interface ApiBibleStudyWeek {
   page_range?: string;
   study_date: string;
   pdf_file?: string | null;
+  /** Absolute URL of the photograph attached when it was published. */
+  cover_image?: string | null;
   is_published?: boolean;
   /** Empty when the office has published the pamphlet facts but not the text. */
   translations?: ApiStudyTranslation[];
@@ -333,4 +336,17 @@ export interface ApiActivityLog {
   severity: "info" | "warning" | "critical";
   assembly: string | null;
   created_at: string;
+}
+
+/** The morning verse, newest first from the server. */
+export interface ApiDailyVerse {
+  id: string;
+  assembly: ApiAssemblyMini | null;
+  reference: string;
+  english: string;
+  twi: string;
+  published_on: string;
+  created_by: ApiMemberMini | null;
+  created_at: string;
+  updated_at: string;
 }

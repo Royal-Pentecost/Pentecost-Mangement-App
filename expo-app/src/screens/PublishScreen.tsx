@@ -10,7 +10,7 @@ import {
   studyReleased,
   weekStart,
 } from "../data";
-import { useContent } from "../store";
+import { parseEventDate, useContent } from "../store";
 import {
   BookIcon,
   CalendarIcon,
@@ -184,6 +184,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     clearPublishError,
   } = useContent();
   const [publishing, setPublishing] = useState(false);
+  const [studyError, setStudyError] = useState<string | null>(null);
 
   const [section, setSection] = useState<Section>("schedule");
   const [saved, setSaved] = useState<string | null>(null);
@@ -206,6 +207,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
   const [bWeek, setBWeek] = useState("");
   const [bDate, setBDate] = useState(nextSunday());
   const [bPages, setBPages] = useState("");
+  const [bTheme, setBTheme] = useState("");
   const [bCover, setBCover] = useState<string | undefined>();
   const [studyLang, setStudyLang] = useState<Lang>("en");
   const [vEnglish, setVEnglish] = useState("");
@@ -256,7 +258,17 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     flash(eCover ? "Event published — its photo is on the event card" : "Event published to every member's dashboard");
   };
 
-  const saveStudy = () => {
+  const saveStudy = async () => {
+    if (publishing) return;
+    // "Sep 6", "6/9" and "2026-09-06" all mean the same Sunday; the server
+    // takes only the last, so the form reads them all rather than refusing two.
+    const date = parseEventDate(bDate);
+    if (!date) {
+      setSaved(null);
+      setStudyError(`Could not read "${bDate.trim()}" as a date. Try "Sep 6" or "2026-09-06".`);
+      return;
+    }
+    setStudyError(null);
     // The Twi column falls back to the English one, so a half-filled form still
     // publishes something readable rather than blank cards.
     const text = (f: StudyForm, fallback: StudyForm): StudyText => ({
@@ -268,17 +280,24 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
       notes: f.notes.trim() || fallback.notes.trim() || undefined,
     });
 
-    addStudy({
+    setSaved(null);
+    setPublishing(true);
+    const ok = await addStudy({
       weekNumber: Number(bWeek.trim()) || studies.length + 1,
-      date: bDate.trim(),
+      date,
       pages: bPages.trim() || "—",
+      theme: bTheme.trim() || undefined,
       available: true,
       cover: bCover,
       en: text(en, en),
       tw: text(tw, en),
     });
+    setPublishing(false);
+    // Kept on failure, so a long study is fixed rather than retyped.
+    if (!ok) return;
 
     setBWeek("");
+    setBTheme("");
     setBDate(nextSunday());
     setBPages("");
     setBCover(undefined);
@@ -288,8 +307,13 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     flash(bCover ? "Study released — its photo opens the study guide" : "Bible study released to every member's dashboard");
   };
 
-  const saveVerse = () => {
-    publishDailyVerse({ english: vEnglish.trim(), twi: vTwi.trim(), reference: vReference.trim() });
+  const saveVerse = async () => {
+    if (publishing) return;
+    setSaved(null);
+    setPublishing(true);
+    const ok = await publishDailyVerse({ english: vEnglish.trim(), twi: vTwi.trim(), reference: vReference.trim() });
+    setPublishing(false);
+    if (!ok) return;
     setVEnglish("");
     setVTwi("");
     setVReference("");
@@ -473,6 +497,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
               <Field label="Week number" value={bWeek} onChangeText={setBWeek} placeholder={String(studies.length + 1)} style={{ flex: 1 }} />
               <Field label="Pages" value={bPages} onChangeText={setBPages} placeholder="pp. 69–84" style={{ flex: 1 }} />
             </View>
+            <Field label="Theme (optional)" value={bTheme} onChangeText={setBTheme} placeholder="Growing in Grace & Knowledge" />
             <Field
               label="Sunday taught"
               value={bDate}
@@ -556,7 +581,8 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
             ) : null}
 
             <CoverPicker value={bCover} onChange={setBCover} hint="Shown at the top of the study guide" />
-            <SubmitButton label="Release study" onPress={saveStudy} disabled={!studyReady} Icon={PlusIcon} />
+            <SubmitButton label={publishing ? "Publishing…" : "Release study"} onPress={saveStudy} disabled={!studyReady || publishing} Icon={PlusIcon} />
+            <PublishProblem message={studyError ?? publishError} />
           </Card>
 
           <SectionHeading
@@ -612,7 +638,8 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
             <Field label="Bible reference" value={vReference} onChangeText={setVReference} placeholder="John 3:16" />
             <Field label="English verse" value={vEnglish} onChangeText={setVEnglish} placeholder="For God so loved the world..." multiline />
             <Field label="Twi verse" value={vTwi} onChangeText={setVTwi} placeholder="Na Onyankopon dɔ wiase no saa..." multiline />
-            <SubmitButton label="Publish daily verse" onPress={saveVerse} disabled={!verseReady} Icon={BookIcon} />
+            <SubmitButton label={publishing ? "Publishing…" : "Publish daily verse"} onPress={saveVerse} disabled={!verseReady || publishing} Icon={BookIcon} />
+            <PublishProblem message={publishError} />
           </Card>
 
           {dailyVerse ? (

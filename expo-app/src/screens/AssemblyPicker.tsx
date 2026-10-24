@@ -157,7 +157,7 @@ export default function AssemblyPicker({ onSelectAssembly }: { onSelectAssembly:
                   {a.live ? (
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
                       <Txt variant="bodySemi" style={{ fontSize: 11.5, color: "#FBBF24" }}>
-                        {loading && roll.length === 0 ? "Loading members…" : `${countFor(a)} members`}
+                        {loading ? "Loading members…" : `${countFor(a)} member${countFor(a) === 1 ? "" : "s"}`}
                       </Txt>
                       <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.22)" }}>
                         <ChevronRightIcon size={13} color="#fff" />
