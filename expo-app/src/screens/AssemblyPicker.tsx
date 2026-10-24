@@ -11,8 +11,11 @@ import { Btn, Card, Txt, shadow } from "../ui";
 import { PopIn } from "../motion";
 import { useDirectory } from "../directory";
 import { HeaderBlock, HeaderChip } from "../components/HeaderBlock";
+import { usePullToRefresh } from "../refresh";
 
 export default function AssemblyPicker({ onSelectAssembly }: { onSelectAssembly: (a: Assembly) => void }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark, mode, toggle } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -64,7 +67,7 @@ export default function AssemblyPicker({ onSelectAssembly }: { onSelectAssembly:
         </View>
       </HeaderBlock>
 
-      <ScrollView
+      <ScrollView refreshControl={pullToRefresh}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: insets.bottom + 28 }}
         showsVerticalScrollIndicator={false}

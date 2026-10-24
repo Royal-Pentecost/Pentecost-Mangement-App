@@ -5,6 +5,7 @@ import { RADIUS, useTheme } from "../theme";
 import { SettingsTopic, settingsPages } from "../data";
 import { Card, SectionHeading, Txt } from "../ui";
 import { ClockIcon, GmailIcon, PhoneIcon } from "../icons";
+import { usePullToRefresh } from "../refresh";
 
 /** The contact rows carry a kind marker; map it to a line icon. */
 function ContactIcon({ kind, color }: { kind: string; color: string }) {
@@ -20,11 +21,13 @@ export default function SettingsDetailScreen({
   topic: SettingsTopic;
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c } = useTheme();
   const page = settingsPages[topic];
 
   return (
-    <ScrollView
+    <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: bottomInset }}
       showsVerticalScrollIndicator={false}

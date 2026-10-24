@@ -43,6 +43,7 @@ import { useDirectory } from "../directory";
 
 import * as Api from "../api/resources";
 import { describeError, useSession } from "../session";
+import { usePullToRefresh } from "../refresh";
 
 /** The app's milestone labels, in the server's vocabulary. */
 const MILESTONE_TYPE: Record<string, "baptism" | "confirmation" | "certification" | "other"> = {
@@ -195,6 +196,8 @@ export default function AdminHub({
   loginRole: LoginRole;
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   const { manualAttendance } = useContent();
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -585,7 +588,7 @@ export default function AdminHub({
   );
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} keyboardShouldPersistTaps="handled">
+    <ScrollView refreshControl={pullToRefresh} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} keyboardShouldPersistTaps="handled">
       <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>
         <Txt style={{ fontSize: 12, lineHeight: 18, color: c.mutedForeground }}>
           Admin portal to update, edit, and fill all church database records.

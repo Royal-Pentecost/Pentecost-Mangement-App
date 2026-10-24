@@ -21,6 +21,7 @@ import { ContentProvider, useContent } from "./src/store";
 import { LocationProvider, useLocation } from "./src/location";
 import { SessionProvider, useSession } from "./src/session";
 import { TodayAttendanceProvider, useTodayAttendance } from "./src/today";
+import { useOnPullToRefresh } from "./src/refresh";
 import { DirectoryProvider, useDirectory } from "./src/directory";
 import * as Api from "./src/api/resources";
 import { describeError } from "./src/session";
@@ -248,6 +249,11 @@ function ChurchApp() {
    * find out some other way. Without this a member would sit looking at
    * "Attendance Session Closed" through the whole service.
    */
+  // Bumped by pull-to-refresh: re-running the effect checks the server now
+  // instead of waiting up to 30 seconds for the next poll.
+  const [sessionCheck, setSessionCheck] = useState(0);
+  useOnPullToRefresh(() => setSessionCheck((n) => n + 1));
+
   useEffect(() => {
     if (appPhase !== "app") return;
 
@@ -283,7 +289,7 @@ function ChurchApp() {
       stopped = true;
       clearInterval(timer);
     };
-  }, [appPhase, openSessionAt, closeSession]);
+  }, [appPhase, openSessionAt, closeSession, sessionCheck]);
 
   const handleBack = () => {
     if (history.length > 1) {

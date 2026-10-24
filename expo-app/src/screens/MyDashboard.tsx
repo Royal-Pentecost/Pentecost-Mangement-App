@@ -49,6 +49,7 @@ import { useDirectory, useMe } from "../directory";
 import { useLocation } from "../location";
 import { addressOfMember } from "../naming";
 import { useSession } from "../session";
+import { usePullToRefresh } from "../refresh";
 
 const CARD_GAP = 12;
 
@@ -536,6 +537,8 @@ export default function MyDashboard({
   user: SessionUser;
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   // Live content — whatever an admin has published in the Admin Hub.
   const { schedule: weeklySchedule, events, studies: bibleStudies, language, dailyVerse } = useContent();
@@ -615,7 +618,7 @@ export default function MyDashboard({
   const canMark = scenario === "inside-active" && !attendanceMarked;
 
   return (
-    <ScrollView
+    <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: bottomInset }}
       showsVerticalScrollIndicator={false}

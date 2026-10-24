@@ -164,6 +164,17 @@ const SEEN_KEY = "pentecost.seen";
  * before. Keyed by member id, so a second person signing in on the same phone
  * still gets their own first-time welcome.
  */
+/**
+ * Keeps the stored copy of the member in step with the server.
+ *
+ * The session restores this copy on launch, so without it a new photo, a
+ * corrected name or a changed role would be undone the next time the app
+ * opened — the refreshed record lived only in memory.
+ */
+export async function rememberMember(member: ApiMember): Promise<void> {
+  await storage.set(MEMBER_KEY, JSON.stringify(member));
+}
+
 export async function noteSignIn(memberId: string): Promise<{ firstTime: boolean }> {
   const key = `${SEEN_KEY}.${memberId}`;
   const seen = await storage.get(key);

@@ -7,6 +7,7 @@ import { useDirectory } from "../directory";
 import { ChevronRightIcon, SearchIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, TintTile, Txt, tintFg } from "../ui";
 import { FadeIn } from "../motion";
+import { usePullToRefresh } from "../refresh";
 
 export default function EldersDirectory({
   onSelectElder,
@@ -15,6 +16,8 @@ export default function EldersDirectory({
   onSelectElder: (e: Elder) => void;
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   // Every office holder on the roll, ranked presiding elder → elders → deacons →
   // deaconesses. This read the nine seeded leaders in `data.ts` until now.
@@ -37,7 +40,7 @@ export default function EldersDirectory({
   });
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} keyboardShouldPersistTaps="handled">
+    <ScrollView refreshControl={pullToRefresh} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} keyboardShouldPersistTaps="handled">
       {/* Search */}
       {showSearch ? (
         <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>

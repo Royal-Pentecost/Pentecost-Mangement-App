@@ -11,6 +11,7 @@ import { useContent } from "../store";
 import { useTodayAttendance } from "../today";
 import { useSession } from "../session";
 import { addressOf } from "../naming";
+import { usePullToRefresh } from "../refresh";
 
 // ─── Admin session panel ──────────────────────────────────────────────────────
 
@@ -186,6 +187,8 @@ export default function HomeTab({
   loginRole: LoginRole;
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   // The roll comes from the server; the store no longer owns it.
   const { members: directory } = useDirectory();
@@ -213,7 +216,7 @@ export default function HomeTab({
       ];
 
   return (
-    <ScrollView
+    <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingTop: 18, paddingBottom: bottomInset + 8 }}
       showsVerticalScrollIndicator={false}

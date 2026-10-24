@@ -7,13 +7,16 @@ import { Elder, pentecostLogo } from "../data";
 import { Avatar, Btn, Card, Pulse, Txt, shadow } from "../ui";
 import { ChatIcon, ClockIcon, GmailIcon, PhoneIcon, WhatsappIcon } from "../icons";
 import { PopIn } from "../motion";
+import { usePullToRefresh } from "../refresh";
 
 export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bottomInset: number }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset + 80 }}>
+      <ScrollView refreshControl={pullToRefresh} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset + 80 }}>
         {/* Hero */}
         <LinearGradient
           colors={isDark ? ["#1B2C6B", "#0F1B44"] : ["#22357F", "#1B2C6B"]}

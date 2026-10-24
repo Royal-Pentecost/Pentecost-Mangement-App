@@ -7,6 +7,7 @@ import { useContent } from "../store";
 import { BellIcon, BookIcon, CalendarIcon, ClockIcon, PinIcon, ShieldIcon, TrashIcon } from "../icons";
 import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
 import { FadeIn } from "../motion";
+import { usePullToRefresh } from "../refresh";
 
 const KIND_STYLE: Record<
   AppNotification["kind"],
@@ -60,6 +61,8 @@ function NotificationRow({ item, onPress }: { item: AppNotification; onPress: ()
 }
 
 export default function NotificationsScreen({ bottomInset }: { bottomInset: number }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   // Notifications live in the shared store so anything an admin publishes
   // shows up here the moment it is saved.
@@ -78,7 +81,7 @@ export default function NotificationsScreen({ bottomInset }: { bottomInset: numb
   const earlier = items.filter((n) => !n.unread);
 
   return (
-    <ScrollView
+    <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: bottomInset }}
       showsVerticalScrollIndicator={false}

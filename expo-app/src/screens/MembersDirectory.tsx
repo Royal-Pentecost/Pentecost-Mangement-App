@@ -8,6 +8,7 @@ import { ChevronRightIcon, SearchIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, Txt } from "../ui";
 import { FadeIn } from "../motion";
 import { useContent } from "../store";
+import { usePullToRefresh } from "../refresh";
 
 export default function MembersDirectory({
   onSelectMember,
@@ -25,6 +26,8 @@ export default function MembersDirectory({
   scope?: "all" | "dayBorn";
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   // The congregation comes from the server now; `ME` is only the fallback for
   // the brief moment before the signed-in member's own record has arrived.
@@ -62,7 +65,7 @@ export default function MembersDirectory({
   });
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} keyboardShouldPersistTaps="handled">
+    <ScrollView refreshControl={pullToRefresh} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} keyboardShouldPersistTaps="handled">
       {/* Search */}
       <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
         <View

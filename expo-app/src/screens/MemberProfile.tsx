@@ -7,6 +7,7 @@ import { Elder, Member } from "../data";
 import { BookIcon, CameraIcon, ChatIcon, CheckIcon, CircleIcon, FlameIcon, HandshakeIcon, IdCardIcon, MusicIcon, PhoneIcon, PrayIcon, UsersIcon } from "../icons";
 import { Avatar, Btn, Card, ProgressBar, Pulse, Txt, shadow } from "../ui";
 import { SwapFade } from "../motion";
+import { usePullToRefresh } from "../refresh";
 
 type ProfileTab = "attendance" | "roles" | "milestones";
 
@@ -27,6 +28,8 @@ export default function MemberProfile({
   elders: Elder[];
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<ProfileTab>("attendance");
 
@@ -41,7 +44,7 @@ export default function MemberProfile({
   };
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }}>
+    <ScrollView refreshControl={pullToRefresh} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }}>
       {/* Hero */}
       <LinearGradient
         colors={isDark ? ["#1B2C6B", "#0F1B44"] : ["#22357F", "#1B2C6B"]}

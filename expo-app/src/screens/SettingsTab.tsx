@@ -8,6 +8,7 @@ import { useContent } from "../store";
 import { BellIcon, BookIcon, CameraIcon, ChatIcon, ChevronRightIcon, FileTextIcon, InfoIcon, LockIcon, LogOutIcon, MoonIcon, SunIcon, UserIcon } from "../icons";
 import { Avatar, Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
 import { FadeIn } from "../motion";
+import { usePullToRefresh } from "../refresh";
 
 interface Row {
   key: SettingsTopic;
@@ -64,6 +65,8 @@ export default function SettingsTab({
   onLogout: () => void;
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark, mode, toggle } = useTheme();
   const { language, setLanguage } = useContent();
 
@@ -87,7 +90,7 @@ export default function SettingsTab({
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <ScrollView
+    <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: bottomInset }}
       showsVerticalScrollIndicator={false}

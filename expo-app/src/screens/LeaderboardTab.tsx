@@ -8,6 +8,7 @@ import { Avatar, Btn, Card, SectionHeading, Txt, shadow } from "../ui";
 import { MedalIcon } from "../icons";
 import { EASE_OUT, FadeIn, PopIn } from "../motion";
 import { arrivalPhrase } from "./MyDashboard";
+import { usePullToRefresh } from "../refresh";
 
 interface BoardRow {
   id: string;
@@ -75,6 +76,8 @@ function GrowBar({
 }
 
 export default function LeaderboardTab({ user, bottomInset }: { user: SessionUser; bottomInset: number }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   const [subTab, setSubTab] = useState<"consistent" | "encourage">("consistent");
 
@@ -136,7 +139,7 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
   const podiumHeights = [76, 100, 64];
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} showsVerticalScrollIndicator={false}>
+    <ScrollView refreshControl={pullToRefresh} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} showsVerticalScrollIndicator={false}>
       {/* Segmented control */}
       <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
         <View style={{ flexDirection: "row", padding: 2, borderRadius: RADIUS.md, backgroundColor: c.muted ,alignItems:"center"}}>

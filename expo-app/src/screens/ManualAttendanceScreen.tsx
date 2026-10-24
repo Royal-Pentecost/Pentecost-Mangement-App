@@ -25,6 +25,7 @@ import {
 } from "../icons";
 import { Avatar, Btn, Card, SectionHeading, TintTile, Txt, tintFg } from "../ui";
 import { ChipRow, ChoiceList, SubmitButton } from "../components/AdminForm";
+import { usePullToRefresh } from "../refresh";
 
 /** "07:01" from an ISO timestamp, in the phone's own clock. */
 function timeOf(iso: string): string {
@@ -45,6 +46,8 @@ export default function ManualAttendanceScreen({
   signedBy: SessionUser;
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   // The roll as the server holds it. There is no seeded fallback: a sample
   // member's id does not exist on the server, so picking one could only fail.
@@ -159,7 +162,7 @@ export default function ManualAttendanceScreen({
   };
 
   return (
-    <ScrollView
+    <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: bottomInset }}
       showsVerticalScrollIndicator={false}

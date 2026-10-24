@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { SESSION_DAYS, noteSignIn, requestOtp, restoreSession, signOut as clearToken, verifyOtp } from "./api/auth";
+import { SESSION_DAYS, noteSignIn, rememberMember, requestOtp, restoreSession, signOut as clearToken, verifyOtp } from "./api/auth";
 import { ApiError, setUnauthorizedHandler } from "./api/client";
-import { uploadProfilePhoto } from "./api/resources";
+import { fetchMember, uploadProfilePhoto } from "./api/resources";
 import { ApiMember, ApiRole } from "./api/types";
 import { DayBorn, LoginRole, SessionUser } from "./data";
 
@@ -43,6 +43,11 @@ interface SessionValue {
   sendCode: (phone: string) => Promise<string | null>;
   /** Uploads a new profile photograph and updates the session in place. */
   setPhoto: (uri: string) => Promise<void>;
+  /**
+   * Re-reads the signed-in member from the server — a corrected name, a new
+   * day-born group, or a role an admin granted, without signing out.
+   */
+  refreshMember: () => Promise<void>;
   /** Resolves with the role the server granted, so callers need not read state. */
   signIn: (phone: string, code: string) => Promise<LoginRole>;
   signOut: () => Promise<void>;
@@ -178,9 +183,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // decides the outcome — the local preview only covers the wait.
       const updated = await uploadProfilePhoto(member.id, uri);
       setMember(updated);
+      // Stored too, or the old photo came back on the next launch.
+      await rememberMember(updated);
     },
     [member],
   );
+
+  const refreshMember = useCallback(async () => {
+    if (!member) return;
+    try {
+      const fresh = await fetchMember(member.id);
+      setMember(fresh);
+      await rememberMember(fresh);
+    } catch {
+      // Offline, or the server is asleep: the copy already shown stands.
+    }
+  }, [member]);
 
   const signOut = useCallback(async () => {
     await clearToken();
@@ -205,8 +223,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const weekday = member?.day_born_group?.weekday;
     const dayBorn = typeof weekday === "number" ? WEEKDAY_NAMES[weekday] ?? null : null;
 
-    return { status, member, role, user, dayBorn, firstTime, expiresAt, sendCode, setPhoto, signIn, signOut };
-  }, [status, member, firstTime, expiresAt, sendCode, setPhoto, signIn, signOut]);
+    return { status, member, role, user, dayBorn, firstTime, expiresAt, sendCode, setPhoto, refreshMember, signIn, signOut };
+  }, [status, member, firstTime, expiresAt, sendCode, setPhoto, refreshMember, signIn, signOut]);
 
   return <SessionCtx.Provider value={value}>{children}</SessionCtx.Provider>;
 }

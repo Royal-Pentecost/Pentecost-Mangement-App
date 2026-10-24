@@ -23,10 +23,13 @@ import { exportTextFile, stampedName, toCsv } from "../files";
 import { useContent } from "../store";
 import { AlertTriangleIcon, ChevronRightIcon, ChurchIcon, LockIcon, SearchIcon, ShieldIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, Txt } from "../ui";
+import { usePullToRefresh } from "../refresh";
 
 const BOUNDARIES = ["Royal Assembly", "SMT", "Upper Room", "Grace Temple", "Ayigya District", "Ayigya North"];
 
 export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const compactActions = width < 390;
@@ -137,7 +140,7 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} keyboardShouldPersistTaps="handled">
+      <ScrollView refreshControl={pullToRefresh} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomInset }} keyboardShouldPersistTaps="handled">
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>
           <Txt style={{ fontSize: 12, lineHeight: 18, color: c.mutedForeground }}>
             Manage administrative privileges, assign admin roles, and monitor system security.

@@ -102,6 +102,8 @@ interface ContentState {
   /** Set when a publish failed to reach the server; null once one succeeds. */
   publishError: string | null;
   clearPublishError: () => void;
+  /** Re-reads services, events, notifications and the assembly's fence. */
+  refreshContent: () => Promise<void>;
 }
 
 const ContentContext = createContext<ContentState | null>(null);
@@ -665,6 +667,7 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       clearAllNotifications,
       publishError,
       clearPublishError,
+      refreshContent,
     }),
     [
       schedule,
@@ -703,6 +706,7 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       clearAllNotifications,
       publishError,
       clearPublishError,
+      refreshContent,
     ],
   );
 

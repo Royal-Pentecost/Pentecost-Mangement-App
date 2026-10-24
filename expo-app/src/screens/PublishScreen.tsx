@@ -23,6 +23,7 @@ import {
 } from "../icons";
 import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
 import { CoverPicker, Field, SubmitButton } from "../components/AdminForm";
+import { usePullToRefresh } from "../refresh";
 
 type Section = "schedule" | "events" | "study" | "verse";
 
@@ -162,6 +163,8 @@ function PublishProblem({ message }: { message: string | null }) {
 }
 
 export default function PublishScreen({ bottomInset }: { bottomInset: number }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   const {
     schedule,
@@ -299,7 +302,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
   const verseReady = vEnglish.trim() !== "" && vTwi.trim() !== "" && vReference.trim() !== "";
 
   return (
-    <ScrollView
+    <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: bottomInset }}
       showsVerticalScrollIndicator={false}

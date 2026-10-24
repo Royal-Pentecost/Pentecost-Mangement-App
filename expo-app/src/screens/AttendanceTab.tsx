@@ -9,6 +9,7 @@ import { CheckIcon } from "../icons";
 import { Btn, Card, Ping, SectionHeading, StatusDot, Txt, shadow } from "../ui";
 import { Breathe, Burst, PopIn, Sheen } from "../motion";
 import AttendanceMap from "../components/AttendanceMap";
+import { usePullToRefresh } from "../refresh";
 
 const MAP_HEIGHT = 280;
 
@@ -29,6 +30,8 @@ export default function AttendanceTab({
   onMarkAttendance: () => void;
   bottomInset: number;
 }) {
+  // Pull down anywhere on this page to reload everything the app shows.
+  const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   const { geofence } = useContent();
   const { phase, fix, distance, inside, certainty, blockedReason, refresh, startWatching } = useLocation();
@@ -58,7 +61,7 @@ export default function AttendanceTab({
   const userColor = inside ? BRAND.green : "#EF4444";
 
   return (
-    <ScrollView
+    <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: bottomInset }}
       showsVerticalScrollIndicator={false}
