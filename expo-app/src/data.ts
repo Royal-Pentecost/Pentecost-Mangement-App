@@ -81,7 +81,14 @@ export interface Member {
   category: "Baptized" | "Department Leader";
   departments: string[];
   attendancePct: number;
+  /** Consecutive Sunday services attended. */
   streak: number;
+  longestStreak?: number;
+  /** Services this year: attended, and held. */
+  attended?: number;
+  held?: number;
+  /** Mean minutes after a session opened that they sign in themselves; null if never. */
+  avgArrival?: number | null;
   attendanceLogs: AttendanceLog[];
   milestones: { label: string; done: boolean }[];
   elderId: string;

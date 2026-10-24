@@ -65,7 +65,7 @@ function ChurchApp() {
   // Who the server says is signed in, and what it lets them do. Privileges come
   // with the verified profile rather than from a table of numbers in the app.
   const { role: sessionRole, status: sessionStatus, user: verifiedUser, member: verifiedMember, setPhoto: uploadPhoto, signOut: endSession } = useSession();
-  const { refresh: refreshDirectory } = useDirectory();
+  const { refresh: refreshDirectory, refreshStats } = useDirectory();
 
   /** Privileges for this session, straight from the verified profile. */
   const loginRole: LoginRole = sessionRole;
@@ -360,6 +360,8 @@ function ChurchApp() {
       // Re-read rather than add one: a second tap, or the same member on two
       // phones, is one person present — the server's count already knows that.
       void today.refresh();
+      // The server has already moved their score and Sunday streak; show it.
+      void refreshStats();
     } catch (e) {
       setAttendanceError(describeError(e));
     }

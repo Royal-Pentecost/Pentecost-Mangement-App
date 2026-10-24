@@ -486,6 +486,19 @@ function PhotoCarousel() {
  * card, so it gives the total and the two largest offices — enough for a member
  * to see this is the whole leadership and not just the elders.
  */
+/**
+ * "within a minute of the start", "6 min after the start", "1 hr 10 min after".
+ * Measured from when the admin opened the session.
+ */
+export function arrivalPhrase(minutes: number): string {
+  const m = Math.round(minutes);
+  if (m <= 1) return "within a minute of the start";
+  if (m < 60) return `${m} min after the start`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return `${h} hr${rest ? ` ${rest} min` : ""} after the start`;
+}
+
 /** Server events carry no colour of their own, so the cards take turns. */
 const EVENT_CARD_TINTS = ["amber", "blue", "violet", "green"] as const;
 
@@ -689,16 +702,26 @@ export default function MyDashboard({
                 <FlameIcon size={16} color={c.accent} />
               </Flicker>
               <Txt variant="displayBold" style={{ fontSize: 16, color: c.accent }}>
-                {streakCount} weeks
+                {streakCount} {streakCount === 1 ? "Sunday" : "Sundays"}
               </Txt>
             </View>
             <Txt variant="bodyMedium" style={{ fontSize: 12.5, color: c.mutedForeground }}>
-              Current streak
+              Sunday streak
             </Txt>
           </View>
         </View>
 
         <ProgressBar pct={me.attendancePct} height={8} fillColor={isDark ? BRAND.blue : BRAND.navy} />
+
+        {/* What the two numbers are made of. A bare "0%" on a new member's
+            phone read as a judgement; "0 of 0 services" reads as "not yet". */}
+        {liveMe ? (
+          <Txt style={{ fontSize: 11.5, lineHeight: 16, marginTop: 8, color: c.mutedForeground }}>
+            {`${liveMe.attended ?? 0} of ${liveMe.held ?? 0} services this year`}
+            {(liveMe.longestStreak ?? 0) > 0 ? ` · best streak ${liveMe.longestStreak}` : ""}
+            {liveMe.avgArrival != null ? ` · usually signs in ${arrivalPhrase(liveMe.avgArrival)}` : ""}
+          </Txt>
+        ) : null}
 
         {/* Live session state */}
         <View

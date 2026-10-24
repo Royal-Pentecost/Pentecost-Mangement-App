@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { AppState } from "react-native";
 
-import { fetchRecordsOn, fetchSessionsOn, serverToday } from "./api/resources";
+import { fetchOpenSession, fetchRecordsForSession, fetchRecordsOn, fetchSessionsOn, serverToday } from "./api/resources";
 import { ApiAttendanceRecord, ApiAttendanceSession } from "./api/types";
 import { useSession } from "./session";
 
@@ -55,9 +55,19 @@ export function TodayAttendanceProvider({ children }: { children: React.ReactNod
     setLoading(true);
     try {
       const day = serverToday();
-      const [s, r] = await Promise.all([fetchSessionsOn(day), fetchRecordsOn(day)]);
-      setSessions(s);
-      setRecords(r);
+      const [s, r, open] = await Promise.all([fetchSessionsOn(day), fetchRecordsOn(day), fetchOpenSession()]);
+
+      // A service left open since an earlier day is still the one taking
+      // attendance. Without it the manual screen said "no session is open"
+      // while members could still sign in to it.
+      if (open && !s.some((x) => x.id === open.id)) {
+        const carried = await fetchRecordsForSession(open.id);
+        setSessions([open, ...s]);
+        setRecords([...carried, ...r]);
+      } else {
+        setSessions(s);
+        setRecords(r);
+      }
       setLoaded(true);
     } catch {
       // Keep the last figures. A dropped request mid-service is not evidence

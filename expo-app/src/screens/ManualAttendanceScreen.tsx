@@ -48,7 +48,7 @@ export default function ManualAttendanceScreen({
   const { c, isDark } = useTheme();
   // The roll as the server holds it. There is no seeded fallback: a sample
   // member's id does not exist on the server, so picking one could only fail.
-  const { members: roll, loading: rollLoading } = useDirectory();
+  const { members: roll, loading: rollLoading, refreshStats } = useDirectory();
   const today = useTodayAttendance();
 
   // Everything here is the server's record of today, not this phone's memory.
@@ -131,6 +131,7 @@ export default function ManualAttendanceScreen({
         note: `${status === "late" ? "Late — " : ""}${reasonLabel} — signed by ${signedBy.name}`,
       });
       await today.refresh();
+      void refreshStats();
     } catch (e) {
       setSubmitError(describeError(e));
       return;
@@ -150,6 +151,7 @@ export default function ManualAttendanceScreen({
     try {
       await Api.undoAttendance(recordId);
       await today.refresh();
+      void refreshStats();
       setJustSigned(null);
     } catch (e) {
       setSubmitError(`Could not undo ${name}: ${describeError(e)}`);

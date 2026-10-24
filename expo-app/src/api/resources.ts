@@ -199,9 +199,17 @@ export const fetchSessions = () => listAll<ApiAttendanceSession>("/api/v1/attend
 
 /** The session currently taking attendance, if any. */
 export async function fetchOpenSession(): Promise<ApiAttendanceSession | null> {
-  const sessions = await fetchSessions();
+  // Filtered on the server. Every phone asks this every 30 seconds, and the
+  // unfiltered list is every session the assembly has ever held — growing by
+  // a few a week, paged, and capped by `listAll`.
+  const sessions = await listAll<ApiAttendanceSession>("/api/v1/attendance/sessions/", { query: { open: "true" } });
+  // The check stays as a guard against a server that ignores the filter.
   return sessions.find((s) => s.is_active && !s.closed_at) ?? null;
 }
+
+/** Every mark in one session — for a service left open past the day it began. */
+export const fetchRecordsForSession = (session: string) =>
+  listAll<ApiAttendanceRecord>("/api/v1/attendance/records/", { query: { session } });
 
 export interface OpenSessionInput {
   assembly: string;

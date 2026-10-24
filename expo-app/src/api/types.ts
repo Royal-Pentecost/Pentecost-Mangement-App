@@ -181,8 +181,13 @@ export interface ApiMemberAttendanceStat {
   sessions_possible: number;
   /** Decimal-as-string. */
   annual_score_percent: string;
+  /** Consecutive Sunday services attended — Sundays with no service are skipped. */
   current_streak_weeks: number;
   longest_streak_weeks: number;
+  sundays_attended?: number;
+  sundays_possible?: number;
+  /** Mean minutes from a session opening to the member's own GPS sign-in; null until they have one. */
+  average_arrival_minutes?: number | null;
   last_attended_session?: string | null;
   created_at: string;
   updated_at: string;

@@ -7,16 +7,47 @@ import { useDirectory, useMe } from "../directory";
 import { Avatar, Btn, Card, SectionHeading, Txt, shadow } from "../ui";
 import { MedalIcon } from "../icons";
 import { EASE_OUT, FadeIn, PopIn } from "../motion";
+import { arrivalPhrase } from "./MyDashboard";
 
-const STREAKS: Record<number, string> = {
-  1: "12 week streak",
-  2: "10 week streak",
-  3: "9 week streak",
-  4: "8 week streak",
-  5: "7 week streak",
-  6: "6 week streak",
-  7: "5 week streak",
-};
+interface BoardRow {
+  id: string;
+  rank: number;
+  name: string;
+  avatar: string;
+  photo: string;
+  pct: number;
+  attended: number;
+  held: number;
+  streak: number;
+  /** Mean minutes after opening that they sign in; null if they never have. */
+  arrival: number | null;
+}
+
+/**
+ * Presence first, punctuality second.
+ *
+ * 1. Annual score — the share of services held that they attended.
+ * 2. Services attended — two people at 100% are not equal if one has been
+ *    to twelve services and the other to one.
+ * 3. Arrival — who signs in soonest after the session opens. Early in the
+ *    year, when many people share a perfect record, this is what separates
+ *    them.
+ * 4. Sunday streak, then name, so the order never shuffles between loads.
+ */
+function byConsistency(a: BoardRow, b: BoardRow): number {
+  return (
+    b.pct - a.pct ||
+    b.attended - a.attended ||
+    (a.arrival ?? Infinity) - (b.arrival ?? Infinity) ||
+    b.streak - a.streak ||
+    a.name.localeCompare(b.name)
+  );
+}
+
+function rowDetail(m: BoardRow): string {
+  const streak = m.streak > 0 ? `${m.streak}-Sunday streak` : "No current streak";
+  return m.arrival != null ? `${streak} \u00b7 signs in ${arrivalPhrase(m.arrival)}` : streak;
+}
 
 
 /** A podium block that grows to its final height once, on mount. */
@@ -49,32 +80,47 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
 
   // The board is computed from the congregation's real attendance figures
   // rather than a fixed list, so it reorders itself as the year goes on.
-  const { members, loading } = useDirectory();
+  const { members, loading, refreshStats } = useDirectory();
   const me = useMe();
 
-  const board = useMemo(() => {
-    const scored = members
-      .map((m) => ({
-        id: m.id,
-        rank: 0,
-        name: m.name,
-        avatar: m.avatar,
-        photo: m.photo,
-        // `total` is the denominator the row renders a percentage from. The
-        // server reports a percentage directly, so 100 keeps the arithmetic
-        // honest instead of inventing a service count.
-        present: m.attendancePct,
-        total: 100,
-        streak: m.streak,
-      }))
-      .sort((a, b) => b.present - a.present || a.name.localeCompare(b.name));
+  // The board moves during a service as people sign in; read the latest
+  // figures whenever it is opened rather than the ones from sign-in.
+  React.useEffect(() => {
+    void refreshStats();
+  }, [refreshStats]);
 
-    const ranked = scored.map((row, i) => ({ ...row, rank: i + 1 }));
+  const board = useMemo(() => {
+    const rows: BoardRow[] = members.map((m) => ({
+      id: m.id,
+      rank: 0,
+      name: m.name,
+      avatar: m.avatar,
+      photo: m.photo,
+      pct: m.attendancePct,
+      attended: m.attended ?? 0,
+      held: m.held ?? 0,
+      streak: m.streak,
+      arrival: m.avgArrival ?? null,
+    }));
+
+    // Only people who have actually come can be "most consistent" — with no
+    // attendance yet, an alphabetical list of zeros is not a ranking.
+    const consistent = rows
+      .filter((r) => r.attended > 0)
+      .sort(byConsistency)
+      .map((r, i) => ({ ...r, rank: i + 1 }));
+
+    // The people worth a visit: services have been held, and they have missed
+    // the most of them. Lowest score first, then fewest attended.
+    const needsEncouragement = rows
+      .filter((r) => r.held > 0 && r.pct < 100)
+      .sort((a, b) => a.pct - b.pct || a.attended - b.attended || a.name.localeCompare(b.name))
+      .map((r, i) => ({ ...r, rank: i + 1 }));
 
     return {
-      consistent: ranked.slice(0, 12),
-      // Lowest scores first — the people worth a visit, not a podium.
-      needsEncouragement: [...ranked].reverse().slice(0, 12).map((r, i) => ({ ...r, rank: i + 1 })),
+      consistent: consistent.slice(0, 12),
+      needsEncouragement: needsEncouragement.slice(0, 12),
+      servicesHeld: Math.max(0, ...rows.map((r) => r.held)),
     };
   }, [members]);
 
@@ -125,11 +171,11 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
       <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "center", gap: 14, paddingHorizontal: 16, paddingTop: 28 }}>
         {top3.map((m, i) => {
           if (!m) return <View key={i} style={{ width: 86 }} />;
-          const pct = Math.round((m.present / m.total) * 100);
+          const pct = m.pct;
           const isFirst = podiumRanks[i] === 1;
 
           return (
-            <PopIn key={m.rank} delay={i * 110} style={{ width: 86, alignItems: "center" }}>
+            <PopIn key={m.id} delay={i * 110} style={{ width: 86, alignItems: "center" }}>
               <View style={{ marginBottom: 6 }}>
                 <MedalIcon size={24} color={medalColors[i]} />
               </View>
@@ -176,13 +222,33 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
       <View style={{ paddingHorizontal: 16 }}>
         <SectionHeading label="All Rankings" />
 
+        <Txt style={{ fontSize: 11.5, lineHeight: 16, marginTop: -4, marginBottom: 10, color: c.mutedForeground }}>
+          {subTab === "consistent"
+            ? "Ranked by attendance this year. When two people are level, whoever usually signs in sooner after the service opens goes first."
+            : "Members who have missed the most services this year \u2014 worth a call or a visit."}
+        </Txt>
+
+        {data.length === 0 ? (
+          <Card style={{ padding: 18, alignItems: "center" }}>
+            <Txt variant="bodyMedium" style={{ fontSize: 12.5, textAlign: "center", color: c.mutedForeground }}>
+              {loading
+                ? "Loading attendance\u2026"
+                : board.servicesHeld === 0
+                  ? "No services have been recorded this year yet. The board fills in after the first one."
+                  : subTab === "consistent"
+                    ? "Nobody has signed in to a service yet."
+                    : "Everyone has attended every service so far."}
+            </Txt>
+          </Card>
+        ) : null}
+
         <View style={{ gap: 10 }}>
           {data.map((m, i) => {
-            const pct = Math.round((m.present / m.total) * 100);
+            const pct = m.pct;
             const rankMedal = i < 3 ? medalColors[[1, 0, 2][i]] : null;
 
             return (
-              <FadeIn key={m.rank} index={i} delay={200}>
+              <FadeIn key={m.id} index={i} delay={200}>
               <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 11 }}>
                 <View style={{ width: 26, alignItems: "center" }}>
                   {rankMedal ? (
@@ -207,7 +273,7 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
                     {m.name}
                   </Txt>
                   <Txt variant="bodyMedium" style={{ fontSize: 12, marginTop: 2, color: c.mutedForeground }}>
-                    {STREAKS[m.rank] ?? `${m.rank} week streak`}
+                    {rowDetail(m)}
                   </Txt>
                 </View>
 
@@ -216,7 +282,7 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
                     {pct}%
                   </Txt>
                   <Txt variant="bodyMedium" style={{ fontSize: 11, color: c.mutedForeground }}>
-                    {m.present}/{m.total}
+                    {m.attended}/{m.held}
                   </Txt>
                 </View>
               </Card>

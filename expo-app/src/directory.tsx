@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { AppState } from "react-native";
 
 import { ApiError } from "./api/client";
 import {
@@ -42,6 +43,13 @@ interface DirectoryValue {
   /** Set when the last load failed, phrased for a person. */
   error: string | null;
   refresh: () => Promise<void>;
+  /**
+   * Re-reads only the attendance figures — score, Sunday streak, arrival time.
+   * The server recomputes them the moment a mark is added or undone, so this
+   * is what makes a member's streak move on their own dashboard right after
+   * they sign in, without reloading the whole roll.
+   */
+  refreshStats: () => Promise<void>;
 }
 
 const DirectoryCtx = createContext<DirectoryValue | null>(null);
@@ -151,6 +159,23 @@ export function DirectoryProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const refreshStats = useCallback(async () => {
+    const rows = await fetchStats().catch(() => null);
+    if (!rows) return;
+    const byMember = new Map(rows.map((r) => [r.member?.id ?? "", r]));
+    setMembers((list) => list.map((m) => withStats(m, byMember.get(m.id))));
+  }, []);
+
+  // Back in the foreground: a service may have closed, or the member may have
+  // been signed in by an admin, while the app was asleep.
+  useEffect(() => {
+    if (status !== "signedIn") return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshStats();
+    });
+    return () => sub.remove();
+  }, [status, refreshStats]);
+
   // Load once signed in, and drop it on sign-out so the next person does not
   // see the previous one's congregation.
   useEffect(() => {
@@ -179,8 +204,8 @@ export function DirectoryProvider({ children }: { children: React.ReactNode }) {
           ]
         : members;
 
-    return { members: all, elders, loading, error, refresh: load };
-  }, [members, elders, loading, error, load, me]);
+    return { members: all, elders, loading, error, refresh: load, refreshStats };
+  }, [members, elders, loading, error, load, refreshStats, me]);
 
   return <DirectoryCtx.Provider value={value}>{children}</DirectoryCtx.Provider>;
 }

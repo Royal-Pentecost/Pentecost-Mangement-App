@@ -146,6 +146,10 @@ export function withStats(member: Member, stat: ApiMemberAttendanceStat | undefi
     ...member,
     attendancePct: Number.isFinite(pct) ? Math.round(pct) : 0,
     streak: stat.current_streak_weeks ?? 0,
+    longestStreak: stat.longest_streak_weeks ?? 0,
+    attended: stat.sessions_attended ?? 0,
+    held: stat.sessions_possible ?? 0,
+    avgArrival: stat.average_arrival_minutes ?? null,
   };
 }
 
