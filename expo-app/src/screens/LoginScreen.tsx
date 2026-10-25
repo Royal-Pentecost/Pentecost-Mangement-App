@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BODY, BRAND, FONT, RADIUS, useTheme } from "../theme";
 import { LoginRole, SettingsTopic, pentecostLogo, settingsPages, sliderPhotos } from "../data";
 import { describeError, useSession } from "../session";
+import { listenForCode } from "../../modules/sms-retriever";
 import { GH_PREFIX, ghanaDigits, isCompleteGhana, toLocalNumber } from "../phone";
 import { ArrowLeftIcon, CheckCircleIcon, ChevronDownIcon, MoonIcon, SunIcon, XCircleIcon } from "../icons";
 import { Btn, Card, Txt, shadow } from "../ui";
@@ -349,8 +350,23 @@ export function OtpScreen({
     }
   };
 
+  /** The whole code at once — read from the SMS, or offered by the keyboard. */
+  const fillCode = (code: string) => {
+    if (!/^\d{4}$/.test(code) || verified) return;
+    setDigits(code.split(""));
+    setError(null);
+    inputRefs.current[3]?.blur();
+    submitCode(code);
+  };
+
+  // Android reads the code SMS for us (it ends with this app's hash) and the
+  // code verifies without a tap. iOS offers it above the keyboard instead.
+  useEffect(() => listenForCode(4, fillCode), []);
+
   const handleDigit = (val: string, idx: number) => {
-    const ch = val.replace(/\D/g, "").slice(-1);
+    const all = val.replace(/\D/g, "");
+    if (all.length === 4) return fillCode(all);
+    const ch = all.slice(-1);
     const next = [...digits];
     next[idx] = ch;
     setDigits(next);
@@ -409,7 +425,9 @@ export function OtpScreen({
                 }}
                 value={d}
                 keyboardType="number-pad"
-                maxLength={1}
+                maxLength={4}
+                textContentType={i === 0 ? "oneTimeCode" : "none"}
+                autoComplete={i === 0 ? "sms-otp" : "off"}
                 onChangeText={(v) => handleDigit(v, i)}
                 onKeyPress={(e) => {
                   if (e.nativeEvent.key === "Backspace" && !d && i > 0) inputRefs.current[i - 1]?.focus();

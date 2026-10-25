@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { getAppHash, prepareForCode } from "../modules/sms-retriever";
 
 import { SESSION_DAYS, noteSignIn, rememberMember, requestOtp, restoreSession, signOut as clearToken, verifyOtp } from "./api/auth";
 import { ApiError, setUnauthorizedHandler } from "./api/client";
@@ -155,7 +156,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendCode = useCallback(async (phone: string) => {
-    const reply = await requestOtp(toLocalPhone(phone));
+    // Listen before asking, so a fast SMS is not missed.
+    prepareForCode();
+    const reply = await requestOtp(toLocalPhone(phone), getAppHash());
     // Only ever surfaced in a development build; production sends a real SMS
     // and the field is absent.
     return __DEV__ ? reply?.debug_code ?? null : null;

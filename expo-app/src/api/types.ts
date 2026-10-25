@@ -304,6 +304,8 @@ export interface ApiSpiritualMilestone {
 
 export interface RequestOtpBody {
   phone_number: string;
+  /** Android SMS Retriever hash, appended to the SMS so the app can read it. */
+  app_hash?: string;
 }
 
 export interface VerifyOtpBody {

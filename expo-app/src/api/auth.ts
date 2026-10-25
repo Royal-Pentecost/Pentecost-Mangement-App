@@ -58,8 +58,9 @@ const storage = {
  * deployment never includes that field, so passing it along is safe — but what
  * the app *does* with it must still be gated on `__DEV__`.
  */
-export function requestOtp(phoneNumber: string): Promise<RequestOtpResponse> {
-  const payload: RequestOtpBody = { phone_number: phoneNumber };
+export function requestOtp(phoneNumber: string, appHash?: string | null): Promise<RequestOtpResponse> {
+  // The hash lets Android read the SMS for us; the server adds it to the message.
+  const payload: RequestOtpBody = appHash ? { phone_number: phoneNumber, app_hash: appHash } : { phone_number: phoneNumber };
   return request<RequestOtpResponse>("/api/v1/auth/request-otp/", {
     method: "POST",
     body: payload,
