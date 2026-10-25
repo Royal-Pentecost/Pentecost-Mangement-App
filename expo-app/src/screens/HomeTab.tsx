@@ -30,12 +30,15 @@ function AdminPanel({
   sessionStartTime: string | null;
   membersPresent: number;
   firstTimers: number;
-  onActivate: () => void;
-  onTerminate: () => void;
+  onActivate: () => void | Promise<void>;
+  onTerminate: () => void | Promise<void>;
   onOpenAdminHub: () => void;
 }) {
   const { c, isDark } = useTheme();
-  const [confirmingActivation, setConfirmingActivation] = useState(false);
+  // Both buttons ask first: opening lets the whole assembly sign in, and closing
+  // shuts out anyone still on their way.
+  const [confirming, setConfirming] = useState<"activate" | "terminate" | null>(null);
+  const terminating = confirming === "terminate";
 
   return (
     <Card style={{ padding: 14, gap: 14 }} borderColor={isDark ? BRAND.blue : "#DBE3F7"}>
@@ -74,7 +77,7 @@ function AdminPanel({
       </View>
 
       <Btn
-        onPress={sessionActive ? onTerminate : () => setConfirmingActivation(true)}
+        onPress={() => setConfirming(sessionActive ? "terminate" : "activate")}
         style={{
           paddingVertical: 15,
           borderRadius: RADIUS.md,
@@ -92,38 +95,45 @@ function AdminPanel({
       </Btn>
 
       <Modal
-        visible={confirmingActivation}
+        visible={confirming !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setConfirmingActivation(false)}
+        onRequestClose={() => setConfirming(null)}
       >
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "rgba(7,12,24,0.62)" }}>
           <Pressable
             style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
-            onPress={() => setConfirmingActivation(false)}
+            onPress={() => setConfirming(null)}
           />
           <View style={{ width: "100%", maxWidth: 360, padding: 22, borderRadius: RADIUS.xl, backgroundColor: c.card }}>
             <Txt variant="displayExtraBold" style={{ fontSize: 20, color: c.foreground }}>
-              Activate attendance?
+              {terminating ? "Terminate attendance?" : "Activate attendance?"}
             </Txt>
             <Txt style={{ fontSize: 14, lineHeight: 21, marginTop: 8, color: c.mutedForeground }}>
-              This will open attendance for members at {assembly.name}. Are you sure you want to continue?
+              {terminating
+                ? `${membersPresent} ${membersPresent === 1 ? "member has" : "members have"} signed in. Once you close it, anyone still arriving at ${assembly.name} cannot mark attendance. This cannot be undone.`
+                : `This will open attendance for members at ${assembly.name}. Are you sure you want to continue?`}
             </Txt>
             <View style={{ flexDirection: "row", gap: 10, marginTop: 20 }}>
               <Btn
-                onPress={() => setConfirmingActivation(false)}
+                onPress={() => setConfirming(null)}
                 style={{ flex: 1, paddingVertical: 13, borderRadius: RADIUS.md, alignItems: "center", backgroundColor: c.muted }}
               >
                 <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>Cancel</Txt>
               </Btn>
               <Btn
-                onPress={() => {
-                  setConfirmingActivation(false);
-                  onActivate();
+                // Waits for the server, so the button spins and the dialog stays
+                // up until the session has really opened or closed.
+                onPress={async () => {
+                  try {
+                    await (terminating ? onTerminate() : onActivate());
+                  } finally {
+                    setConfirming(null);
+                  }
                 }}
-                style={{ flex: 1, paddingVertical: 13, borderRadius: RADIUS.md, alignItems: "center", backgroundColor: "#16A34A" }}
+                style={{ flex: 1, paddingVertical: 13, borderRadius: RADIUS.md, alignItems: "center", backgroundColor: terminating ? "#EF4444" : "#16A34A" }}
               >
-                <Txt variant="displayBold" style={{ fontSize: 14, color: "#fff" }}>Activate</Txt>
+                <Txt variant="displayBold" style={{ fontSize: 14, color: "#fff" }}>{terminating ? "Terminate" : "Activate"}</Txt>
               </Btn>
             </View>
           </View>

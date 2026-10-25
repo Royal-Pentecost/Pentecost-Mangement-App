@@ -139,6 +139,7 @@ export function toMember(m: ApiMember): Member {
     // The server models a group's leader on the group, not the member, so this
     // is resolved by `markGroupLeaders` once the groups are known.
     dayBornLeader: false,
+    lastSeenAt: m.last_seen_at ?? null,
   };
 }
 

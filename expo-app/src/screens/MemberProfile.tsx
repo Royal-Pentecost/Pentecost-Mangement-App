@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import * as Api from "../api/resources";
 import { ScrollView, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { BRAND, RADIUS, useTheme } from "../theme";
-import { Elder, Member, classForDayBorn } from "../data";
+import { Elder, Member, classForDayBorn, presence } from "../data";
 import { BookIcon, CameraIcon, ChatIcon, CheckIcon, CircleIcon, FlameIcon, HandshakeIcon, MapPinIcon, MusicIcon, PhoneIcon, PrayIcon, ShieldIcon, UsersIcon, WhatsappIcon } from "../icons";
 import { contactLinks, openContact } from "../contact";
 import { Avatar, Btn, Card, ProgressBar, Pulse, Txt, shadow } from "../ui";
@@ -40,6 +41,23 @@ export default function MemberProfile({
   const links = contactLinks(member.phone);
   const elderLinks = contactLinks(elder?.phone);
   const accessLabel = member.role === "superAdmin" ? "Super admin" : member.role === "admin" ? "Assembly admin" : null;
+  // The directory was loaded a while ago; re-read this one person's "last seen"
+  // every 30 seconds so the badge is true while the profile is open.
+  const [lastSeenAt, setLastSeenAt] = useState(member.lastSeenAt ?? null);
+  useEffect(() => {
+    let stopped = false;
+    const check = () =>
+      void Api.fetchMember(member.id)
+        .then((m) => !stopped && setLastSeenAt(m.last_seen_at ?? null))
+        .catch(() => {});
+    check();
+    const timer = setInterval(check, 30_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [member.id]);
+  const online = presence(lastSeenAt);
 
   const statusColors: Record<string, { bg: string; text: string; label: string }> = {
     present: { bg: isDark ? "#16A34A22" : "#DCFCE7", text: isDark ? BRAND.greenLight : "#166534", label: "Present" },
@@ -68,23 +86,26 @@ export default function MemberProfile({
               borderColor={isDark ? BRAND.goldLight : BRAND.gold}
               fontSize={26}
             />
-            <View
-              style={{
-                position: "absolute",
-                bottom: -4,
-                right: -4,
-                width: 20,
-                height: 20,
-                borderRadius: 10,
-                backgroundColor: "#4ADE80",
-                borderWidth: 2,
-                borderColor: "#1E3A8A",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" }} />
-            </View>
+            {/* Online dot: only while they have the app open. */}
+            {online.active ? (
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: -4,
+                  right: -4,
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: "#4ADE80",
+                  borderWidth: 2,
+                  borderColor: "#1E3A8A",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" }} />
+              </View>
+            ) : null}
           </View>
 
           <Txt variant="displayBold" style={{ fontSize: 20, color: "#fff", textAlign: "center" }}>
@@ -93,6 +114,12 @@ export default function MemberProfile({
           <Txt style={{ fontSize: 12, marginTop: 2, color: "#BFDBFE" }}>
             {[member.assembly, member.residence].filter(Boolean).join(" \u00b7 ")}
           </Txt>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: online.active ? "#4ADE80" : "rgba(255,255,255,0.4)" }} />
+            <Txt variant="bodySemi" style={{ fontSize: 11.5, color: online.active ? "#BBF7D0" : "rgba(255,255,255,0.7)" }}>
+              {online.label}
+            </Txt>
+          </View>
 
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
             <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999, backgroundColor: isDark ? "#F59E0B33" : "rgba(255,255,255,0.2)" }}>
@@ -286,11 +313,6 @@ export default function MemberProfile({
                       {dept}
                     </Txt>
                     <Txt style={{ fontSize: 12, color: c.mutedForeground }}>Serves in</Txt>
-                  </View>
-                  <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: isDark ? "#16A34A22" : "#DCFCE7" }}>
-                    <Txt variant="bodySemi" style={{ fontSize: 10, color: isDark ? BRAND.greenLight : "#166534" }}>
-                      Active
-                    </Txt>
                   </View>
                 </View>
               ))}

@@ -102,6 +102,8 @@ export interface Member {
   dayBorn: DayBorn;
   /** True when this member leads their day-born group. */
   dayBornLeader: boolean;
+  /** When their app last talked to the server (ISO), or null if never. */
+  lastSeenAt?: string | null;
   /**
    * What the server lets this member do. Seeded records are ordinary members;
    * the real value arrives with the directory.
@@ -1388,6 +1390,26 @@ export function dayBornMembers(me: Member, source: Member[]): Member[] {
  */
 export function othersOnly<T extends { id: string }>(list: T[], meId: string | null | undefined): T[] {
   return meId ? list.filter((m) => m.id !== meId) : list;
+}
+
+/**
+ * Whether someone has the app open right now, from when it last talked to the
+ * server. An open app checks in every 30 seconds and the server records it at
+ * most once a minute, so two minutes of silence means they have left.
+ */
+export const ACTIVE_WINDOW_MS = 2 * 60 * 1000;
+
+export function presence(lastSeenAt: string | null | undefined, now = Date.now()): { active: boolean; label: string } {
+  const seen = lastSeenAt ? Date.parse(lastSeenAt) : NaN;
+  if (!Number.isFinite(seen)) return { active: false, label: "Not seen yet" };
+  const ago = now - seen;
+  if (ago < ACTIVE_WINDOW_MS) return { active: true, label: "Active now" };
+  const mins = Math.round(ago / 60000);
+  if (mins < 60) return { active: false, label: `Last seen ${mins} min ago` };
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return { active: false, label: `Last seen ${hours} h ago` };
+  const days = Math.round(hours / 24);
+  return { active: false, label: days === 1 ? "Last seen yesterday" : `Last seen ${days} days ago` };
 }
 
 /** Leaders other than the viewer, matched on the member who holds the office. */

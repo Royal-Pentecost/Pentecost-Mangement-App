@@ -266,7 +266,8 @@ export const fetchRecordsOn = (date: string) =>
  */
 export type MarkAttendanceInput =
   | { method: "gps"; session: string; lat: number; lng: number; is_first_timer?: boolean }
-  | { method: "manual"; session: string; member: string; note?: string; is_first_timer?: boolean };
+  // Manual marks carry the *admin's* position: they must be at the church too.
+  | { method: "manual"; session: string; member: string; note?: string; is_first_timer?: boolean; lat: number; lng: number };
 
 export function markAttendance(input: MarkAttendanceInput) {
   // The server names write-side foreign keys with an `_id` suffix and returns
@@ -288,6 +289,8 @@ export function markAttendance(input: MarkAttendanceInput) {
           method: "manual",
           note: input.note,
           is_first_timer: input.is_first_timer,
+          lat: input.lat.toFixed(6),
+          lng: input.lng.toFixed(6),
         };
   return request<ApiAttendanceRecord>("/api/v1/attendance/records/", { method: "POST", body });
 }
@@ -297,6 +300,15 @@ export const undoAttendance = (id: string) =>
 
 export const fetchStats = () =>
   listAll<ApiMemberAttendanceStat>("/api/v1/attendance/stats/");
+
+// ─── Full exports ────────────────────────────────────────────────────────────
+// Everything, in pages of 1000: the normal lists stop near 500 rows, and an
+// export that quietly drops the oldest services is worse than none.
+const ALL = { query: { page_size: "1000" } };
+export const exportMembers = () => listAll<ApiMember>("/api/v1/accounts/members/", ALL, 100);
+export const exportSessions = () => listAll<ApiAttendanceSession>("/api/v1/attendance/sessions/", ALL, 100);
+export const exportRecords = () => listAll<ApiAttendanceRecord>("/api/v1/attendance/records/", ALL, 100);
+export const exportStats = () => listAll<ApiMemberAttendanceStat>("/api/v1/attendance/stats/", ALL, 100);
 
 // ─── Published content ───────────────────────────────────────────────────────
 
@@ -395,10 +407,12 @@ export const fetchNotifications = () => listAll<ApiNotification>("/api/v1/conten
 export const fetchNotificationReads = () =>
   listAll<ApiNotificationRead>("/api/v1/content/notification-reads/");
 
-export const markNotificationRead = (notification: string) =>
+// The server reads `notification_id`; sending `notification` was rejected, so no
+// read ever saved and every notification came back unread on the next launch.
+export const markNotificationRead = (notification: string, dismissed = false) =>
   request<ApiNotificationRead>("/api/v1/content/notification-reads/", {
     method: "POST",
-    body: { notification },
+    body: { notification_id: notification, dismissed },
   });
 
 // ─── Milestones ──────────────────────────────────────────────────────────────

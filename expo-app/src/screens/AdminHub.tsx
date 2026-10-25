@@ -236,36 +236,77 @@ export default function AdminHub({
     setBusy(false);
   };
 
-  /** The full member directory, as a spreadsheet. */
+  /**
+   * Every member on the roll with their attendance figures, as a spreadsheet —
+   * read fresh from the server, not from what this screen happens to hold.
+   */
   const exportRecords = () =>
-    run(async () =>
-      exportTextFile(
-        stampedName("member-records", "csv"),
-        "text/csv",
-        toCsv(
-          ["Member ID", "Name", "Assembly", "District", "Phone", "Email", "Category", "Day Born", "Attendance %", "Streak", "Member Since"],
-          liveMembers.map((m) => [m.memberId, m.name, m.assembly, m.district, m.phone, m.email, m.category, m.dayBorn, m.attendancePct, m.streak, m.since]),
-        ),
-      ),
-    );
+    run(async () => {
+      try {
+        const [members, stats] = await Promise.all([Api.exportMembers(), Api.exportStats()]);
+        const year = new Date().getFullYear();
+        const statFor = new Map(stats.filter((s) => s.year === year && s.member).map((s) => [s.member!.id, s]));
+        const rows = members
+          .slice()
+          .sort((a, b) => a.full_name.localeCompare(b.full_name))
+          .map((m) => {
+            const s = statFor.get(m.id);
+            return [
+              m.member_id, m.full_name, m.phone_number ?? "", m.sex ?? "", m.date_of_birth ?? "",
+              m.day_born_group?.name ?? "", m.residence ?? "", m.marital_status ?? "", (m.church_roles ?? []).join("; "),
+              m.role.replace("_", " "), m.assembly?.name ?? "",
+              s ? Number(s.annual_score_percent).toFixed(0) : "", s ? s.sessions_attended : "", s ? s.sessions_possible : "",
+              s ? s.current_streak_weeks : "", s ? s.longest_streak_weeks : "",
+            ];
+          });
+        const out = await exportTextFile(
+          stampedName("member-records", "csv"),
+          "text/csv",
+          toCsv(
+            ["Member ID", "Name", "Phone", "Sex", "Date of Birth", "Day-Born Group", "Residence", "Marital Status", "Church Roles",
+             "App Role", "Assembly", `Attendance % (${year})`, "Services Attended", "Services Held", "Current Sunday Streak", "Best Streak"],
+            rows,
+          ),
+        );
+        return out.ok ? { ok: true, message: `${rows.length} member records exported. ${out.message}` } : out;
+      } catch (e) {
+        return { ok: false, message: describeError(e) };
+      }
+    });
 
-  /** Attendance for every member, plus anything an admin signed on their behalf. */
+  /** One row per attendance mark — who signed into which service, when, and how. */
   const exportAttendance = () =>
-    run(async () =>
-      exportTextFile(
-        stampedName("attendance-report", "csv"),
-        "text/csv",
-        toCsv(
-          ["Member ID", "Name", "Date", "Service", "Status", "Signed By"],
-          [
-            ...liveMembers.flatMap((m) =>
-              m.attendanceLogs.map((log) => [m.memberId, m.name, log.date, log.service, log.status, ""]),
-            ),
-            ...manualAttendance.map((r) => [r.memberId, r.memberName, "Today", r.service, r.status, r.signedBy]),
-          ],
-        ),
-      ),
-    );
+    run(async () => {
+      try {
+        const [sessions, records] = await Promise.all([Api.exportSessions(), Api.exportRecords()]);
+        const sessionFor = new Map(sessions.map((s) => [s.id, s]));
+        const minutes = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 60000);
+        const rows = records
+          .map((r) => ({ r, s: sessionFor.get(r.session) }))
+          .sort((a, b) => (b.s?.opened_at ?? "").localeCompare(a.s?.opened_at ?? "") || (a.r.member?.full_name ?? "").localeCompare(b.r.member?.full_name ?? ""))
+          .map(({ r, s }) => [
+            s?.opened_at.slice(0, 10) ?? "", s?.service_name ?? "", s?.opened_at.slice(11, 16) ?? "",
+            r.member?.member_id ?? "", r.member?.full_name ?? "",
+            r.method === "manual" ? "Manual (admin)" : "GPS", r.marked_at.slice(11, 16),
+            s ? minutes(s.opened_at, r.marked_at) : "", r.method === "manual" ? "" : r.distance_from_center_meters,
+            r.is_first_timer ? "Yes" : "No", r.recorded_by?.full_name ?? "", r.note ?? "",
+          ]);
+        const out = await exportTextFile(
+          stampedName("attendance-report", "csv"),
+          "text/csv",
+          toCsv(
+            ["Date", "Service", "Service Opened", "Member ID", "Name", "Signed In By", "Signed In At", "Minutes After Start",
+             "Distance From Church (m)", "First Timer", "Recorded By", "Note"],
+            rows,
+          ),
+        );
+        return out.ok
+          ? { ok: true, message: `${rows.length} attendance marks across ${sessions.length} services exported. ${out.message}` }
+          : out;
+      } catch (e) {
+        return { ok: false, message: describeError(e) };
+      }
+    });
 
   /** Read a spreadsheet of members back in and report what it contained. */
   const importCsv = () =>

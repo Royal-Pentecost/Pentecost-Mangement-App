@@ -7,8 +7,10 @@ import {
   ManualAttendanceReason,
   Member,
   SessionUser,
+  othersOnly,
 } from "../data";
-import { useDirectory } from "../directory";
+import { useDirectory, useMe } from "../directory";
+import { useLocation } from "../location";
 import { useTodayAttendance } from "../today";
 import * as Api from "../api/resources";
 import { describeError } from "../session";
@@ -52,7 +54,15 @@ export default function ManualAttendanceScreen({
   // The roll as the server holds it. There is no seeded fallback: a sample
   // member's id does not exist on the server, so picking one could only fail.
   const { members: roll, loading: rollLoading, refreshStats } = useDirectory();
+  const me = useMe();
   const today = useTodayAttendance();
+  // Signing for others is for people in the hall, so the admin must be there
+  // too. The server checks the same coordinates and refuses from outside.
+  const location = useLocation();
+  const atChurch = location.inside && location.certainty !== "poor" && !!location.fix;
+  const awayReason = atChurch
+    ? null
+    : location.blockedReason ?? "You must be at the church to sign members in.";
 
   // Everything here is the server's record of today, not this phone's memory.
   // The log used to live in local state — gone on reload, invisible to the
@@ -105,10 +115,11 @@ export default function ManualAttendanceScreen({
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return roll
+    // Not the admin themselves: they sign in by GPS like everyone else.
+    return othersOnly(roll, me?.id)
       .filter((m) => m.name.toLowerCase().includes(q) || m.memberId.toLowerCase().includes(q))
       .slice(0, 6);
-  }, [query, roll]);
+  }, [query, roll, me?.id]);
 
   const alreadySigned = picked ? signedIds.has(picked.id) : false;
 
@@ -119,6 +130,10 @@ export default function ManualAttendanceScreen({
     setJustSigned(null);
     if (!openSession) {
       setSubmitError("No attendance session is open. Start one from the home screen first.");
+      return;
+    }
+    if (!atChurch || !location.fix) {
+      setSubmitError(awayReason);
       return;
     }
 
@@ -132,6 +147,8 @@ export default function ManualAttendanceScreen({
         member: picked.id,
         method: "manual",
         note: `${status === "late" ? "Late — " : ""}${reasonLabel} — signed by ${signedBy.name}`,
+        lat: location.fix.lat,
+        lng: location.fix.lng,
       });
       await today.refresh();
       void refreshStats();
@@ -308,10 +325,15 @@ export default function ManualAttendanceScreen({
           {picked?.name.split(" ")[0]} is already signed in for this service.
         </Txt>
       ) : null}
+      {openSession && awayReason ? (
+        <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, textAlign: "center", marginBottom: 10, color: tintFg("amber", isDark) }}>
+          {awayReason}
+        </Txt>
+      ) : null}
       <SubmitButton
         label={busy ? "Signing in\u2026" : picked ? `Sign in ${picked.name.split(" ")[0]}` : "Select a member first"}
         onPress={submit}
-        disabled={!picked || alreadySigned || busy || !openSession}
+        disabled={!picked || alreadySigned || busy || !openSession || !atChurch}
         Icon={CheckCircleIcon}
       />
 
@@ -410,7 +432,7 @@ export default function ManualAttendanceScreen({
                 </View>
 
                 <Btn
-                  onPress={() => void undo(r.id, name)}
+                  onPress={() => undo(r.id, name)}
                   style={{
                     paddingHorizontal: 11,
                     paddingVertical: 7,

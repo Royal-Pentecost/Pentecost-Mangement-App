@@ -99,6 +99,8 @@ export interface ApiMember {
   is_profile_complete?: boolean;
   bible_study_language?: ApiLanguage;
   dark_mode_enabled?: boolean;
+  /** When their app last talked to the server; drives the "Active" badge. */
+  last_seen_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -284,8 +286,10 @@ export interface ApiNotification {
 export interface ApiNotificationRead {
   id: string;
   notification: string;
-  member?: string;
+  member?: string | { id: string };
   read_at?: string;
+  /** Set when the member cleared it from their list. */
+  dismissed_at?: string | null;
 }
 
 export interface ApiSpiritualMilestone {

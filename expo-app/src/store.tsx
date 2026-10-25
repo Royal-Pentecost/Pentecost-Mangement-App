@@ -311,7 +311,9 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       // "Read" is a row of its own, because one announcement goes to the whole
       // assembly and each member reads it separately.
       const readIds = new Set((apiReads ?? []).map((r) => r.notification));
-      setNotifications(apiNotifications.map((n) => toNotification(n, readIds)));
+      // Cleared ones stay gone after a relaunch; they still exist for everyone else.
+      const cleared = new Set((apiReads ?? []).filter((r) => r.dismissed_at).map((r) => r.notification));
+      setNotifications(apiNotifications.filter((n) => !cleared.has(n.id)).map((n) => toNotification(n, readIds)));
     }
   }, [assemblyId]);
 
@@ -690,11 +692,14 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   /**
    * Empties this member's list.
    *
-   * Local only, deliberately: the announcement still exists for everyone else,
-   * and a member clearing their own view must not delete it for the assembly.
+   * Saved per member on the server, so the list stays empty after a relaunch;
+   * the announcement still exists for everyone else.
    */
   const clearAllNotifications = useCallback(() => {
-    setNotifications([]);
+    setNotifications((list) => {
+      for (const n of list) void Api.markNotificationRead(n.id, true).catch(() => {});
+      return [];
+    });
   }, []);
 
   // The four ministries, fixed. Published covers used to be pushed in front of

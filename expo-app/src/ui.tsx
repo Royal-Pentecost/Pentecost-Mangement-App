@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Easing,
+  GestureResponderEvent,
   Image,
   Platform,
   Pressable,
@@ -14,7 +16,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { BODY, FONT, RADIUS, TINTS, TintName, ms, useTheme } from "./theme";
+import { BODY, BRAND, FONT, RADIUS, TINTS, TintName, ms, useTheme } from "./theme";
 
 // ─── Text ─────────────────────────────────────────────────────────────────────
 
@@ -61,23 +63,77 @@ export function Txt({
 
 // ─── Pressable with the web build's active:scale-95 feel ──────────────────────
 
+/** Whether a colour is dark enough to need a white spinner. Unknown counts as dark (gradient buttons are navy). */
+function isDarkColor(color: unknown): boolean {
+  if (typeof color !== "string") return true;
+  const hex = color.match(/^#([0-9a-f]{6})/i)?.[1];
+  if (hex) {
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    return 0.299 * r + 0.587 * g + 0.114 * b < 150;
+  }
+  const rgba = color.match(/rgba?\(([^)]+)\)/)?.[1]?.split(",").map((n) => parseFloat(n));
+  if (rgba && rgba.length >= 3) {
+    // A faint wash over the dark glass panels reads as dark.
+    if (rgba.length === 4 && rgba[3] < 0.5) return true;
+    return 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2] < 150;
+  }
+  return color !== "transparent" && color !== "white" && color !== "#fff";
+}
+
+/**
+ * The app's pressable. When `onPress` returns a promise — anything that waits on
+ * the server — the button shows a spinner and ignores further taps until it
+ * settles, so a slow connection reads as "working", not as a dead button that
+ * invites a second tap. `loading` forces the same state from outside.
+ */
 export function Btn({
   style,
   scale = 0.96,
   disabled,
+  loading,
+  spinnerColor,
+  onPress,
   children,
   ...rest
-}: PressableProps & { style?: StyleProp<ViewStyle>; scale?: number }) {
+}: Omit<PressableProps, "onPress"> & {
+  style?: StyleProp<ViewStyle>;
+  scale?: number;
+  loading?: boolean;
+  spinnerColor?: string;
+  onPress?: (e: GestureResponderEvent) => unknown;
+}) {
+  const [pending, setPending] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => () => void (mounted.current = false), []);
+  const busy = loading || pending;
+
+  const handlePress = (e: GestureResponderEvent) => {
+    if (busy || !onPress) return;
+    const result = onPress(e);
+    if (result && typeof (result as Promise<unknown>).then === "function") {
+      setPending(true);
+      (result as Promise<unknown>).catch(() => {}).finally(() => mounted.current && setPending(false));
+    }
+  };
+
+  const flat = (StyleSheet.flatten(style) ?? {}) as ViewStyle;
   return (
     <Pressable
       {...rest}
-      disabled={disabled}
+      onPress={handlePress}
+      disabled={disabled || busy}
+      accessibilityState={{ ...rest.accessibilityState, busy, disabled: !!(disabled || busy) }}
       style={({ pressed }) => [
         style,
-        pressed && !disabled ? { transform: [{ scale }], opacity: 0.92 } : null,
+        pressed && !disabled && !busy ? { transform: [{ scale }], opacity: 0.92 } : null,
       ]}
     >
-      {children as React.ReactNode}
+      {busy ? <View style={{ opacity: 0.25 }} pointerEvents="none">{children as React.ReactNode}</View> : (children as React.ReactNode)}
+      {busy ? (
+        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="small" color={spinnerColor ?? (isDarkColor(flat.backgroundColor) ? "#fff" : BRAND.navy)} />
+        </View>
+      ) : null}
     </Pressable>
   );
 }

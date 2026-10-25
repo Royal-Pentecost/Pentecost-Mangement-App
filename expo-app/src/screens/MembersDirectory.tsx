@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
-import { LoginRole, ME, Member, dayBornMembers, memberFilters, othersOnly, visibleMembers } from "../data";
+import { LoginRole, ME, Member, dayBornMembers, memberFilters, othersOnly, presence, visibleMembers } from "../data";
 import { useDirectory, useMe } from "../directory";
 import { ChevronRightIcon, SearchIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, Txt } from "../ui";
@@ -172,18 +172,21 @@ export default function MembersDirectory({
                   <Txt variant="displayBold" numberOfLines={1} style={{ flex: 1, fontSize: 14, color: c.foreground }}>
                     {member.name}
                   </Txt>
-                  <View
-                    style={{
-                      paddingHorizontal: 6,
-                      paddingVertical: 2,
-                      borderRadius: 6,
-                      backgroundColor: isDark ? "#16A34A22" : "#DCFCE7",
-                    }}
-                  >
-                    <Txt variant="bodySemi" style={{ fontSize: 10, color: isDark ? BRAND.greenLight : "#166534" }}>
-                      Active
-                    </Txt>
-                  </View>
+                  {/* Only while they have the app open. */}
+                  {presence(member.lastSeenAt).active ? (
+                    <View
+                      style={{
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 6,
+                        backgroundColor: isDark ? "#16A34A22" : "#DCFCE7",
+                      }}
+                    >
+                      <Txt variant="bodySemi" style={{ fontSize: 10, color: isDark ? BRAND.greenLight : "#166534" }}>
+                        Active
+                      </Txt>
+                    </View>
+                  ) : null}
                 </View>
                 <Txt style={{ fontSize: 12, marginTop: 2, color: c.mutedForeground }}>
                   {member.assembly} · {member.memberId}
