@@ -15,7 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BODY, BRAND, FONT, RADIUS, useTheme } from "../theme";
 import { LoginRole, SettingsTopic, pentecostLogo, settingsPages, sliderPhotos } from "../data";
 import { describeError, useSession } from "../session";
-import { ArrowLeftIcon, CheckCircleIcon, ChevronDownIcon, CrownIcon, MoonIcon, ShieldIcon, SunIcon, UserIcon, XCircleIcon } from "../icons";
+import { GH_PREFIX, ghanaDigits, isCompleteGhana, toLocalNumber } from "../phone";
+import { ArrowLeftIcon, CheckCircleIcon, ChevronDownIcon, MoonIcon, SunIcon, XCircleIcon } from "../icons";
 import { Btn, Card, Txt, shadow } from "../ui";
 import BackgroundSlider from "../components/BackgroundSlider";
 
@@ -74,14 +75,11 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string, devCo
   const [policy, setPolicy] = useState<SettingsTopic | null>(null);
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
 
-  const fullPhone = `${selectedCountry.code} ${phone}`;
-  const ready = phone.trim().length > 0;
+  const isGhana = selectedCountry.code === GH_PREFIX;
+  // The server stores Ghanaian numbers as 0XXXXXXXXX.
+  const fullPhone = isGhana ? toLocalNumber(phone) : `${selectedCountry.code} ${phone}`;
+  const ready = isGhana ? isCompleteGhana(phone) : phone.length > 0;
 
-  const hints = [
-    { label: "Member", phone: "20 123 4567", color: isDark ? BRAND.blue : BRAND.navy, bg: isDark ? "#1E3A8A22" : "#EFF6FF" },
-    { label: "Admin", phone: "24 001 0002", color: isDark ? BRAND.greenLight : "#166534", bg: isDark ? "#16A34A22" : "#DCFCE7" },
-    { label: "Super Admin", phone: "53 709 6725", color: BRAND.red, bg: isDark ? "#DC262622" : "#FEE2E2" },
-  ];
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -117,21 +115,6 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string, devCo
             Enter your registered phone number to receive a verification code
           </Txt>
 
-          {/* Demo role pills */}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 20 }}>
-            {hints.map((hint, i) => (
-              <Btn
-                key={i}
-                onPress={() => setPhone(hint.phone)}
-                style={{ paddingHorizontal: 13, paddingVertical: 7, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.16)" }}
-              >
-                <Txt variant="bodySemi" style={{ fontSize: 12, color: "#fff" }}>
-                  Demo: {hint.label}
-                </Txt>
-              </Btn>
-            ))}
-          </View>
-
           {/* Phone card */}
           <View style={[GLASS, { width: "100%", marginTop: 24, padding: 17, gap: 16 }]}>
             <View>
@@ -161,9 +144,9 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string, devCo
 
                 <TextInput
                   value={phone}
-                  onChangeText={setPhone}
+                  onChangeText={(t) => setPhone(isGhana ? ghanaDigits(t) : t.replace(/D/g, "").slice(0, 12))}
                   keyboardType="phone-pad"
-                  placeholder="20 123 4567"
+                  placeholder="537 096 725"
                   placeholderTextColor="rgba(255,255,255,0.5)"
                   style={{
                     flex: 1,
@@ -242,6 +225,7 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string, devCo
                 key={i}
                 onPress={() => {
                   setSelectedCountry(country);
+                  setPhone("");
                   setShowCountry(false);
                 }}
                 style={{
@@ -375,7 +359,10 @@ export function OtpScreen({
     if (next.every((d) => d) && next.join("").length === 4) submitCode(next.join(""));
   };
 
-  const maskedPhone = phone.replace(/(\+\d{3}\s\d{2})\s?\d{3}/, "$1 ***").trim();
+  // "0537096725" → "+233 53 *** 6725"; other countries keep their old shape.
+  const maskedPhone = /^0\d{9}$/.test(phone)
+    ? `+233 ${phone.slice(1, 3)} *** ${phone.slice(6)}`
+    : phone.replace(/(\+\d{3}\s\d{2})\s?\d{3}/, "$1 ***").trim();
   const complete = digits.join("").length === 4;
 
   const boxBg = verified ? "rgba(34,197,94,0.22)" : error ? "rgba(220,38,38,0.22)" : "rgba(255,255,255,0.13)";
@@ -525,27 +512,6 @@ export function OtpScreen({
           </Btn>
         </View>
 
-        {/* Demo role reference */}
-        <View style={{ width: "100%", marginTop: 16, borderRadius: RADIUS.lg, padding: 14, backgroundColor: "rgba(255,255,255,0.12)" }}>
-          <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 8, color: "rgba(255,255,255,0.65)" }}>
-            Demo login roles
-          </Txt>
-          <View style={{ gap: 6 }}>
-            {[
-              { phone: "20 123 4567", label: "Standard Member", Icon: UserIcon, color: "#93C5FD" },
-              { phone: "24 001 0002 / 0003", label: "Assembly Admin", Icon: ShieldIcon, color: "#86EFAC" },
-              { phone: "53 709 6725", label: "Super Admin", Icon: CrownIcon, color: "#FCA5A5" },
-            ].map((r, i) => (
-              <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <r.Icon size={14} color={r.color} />
-                <Txt variant="bodySemi" style={{ fontSize: 12, color: r.color }}>
-                  {r.label}
-                </Txt>
-                <Txt style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>→ {r.phone}</Txt>
-              </View>
-            ))}
-          </View>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

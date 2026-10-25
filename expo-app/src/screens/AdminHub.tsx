@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { GH_PREFIX, fromStoredNumber, ghanaDigits, toLocalNumber } from "../phone";
 import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
@@ -9,7 +10,6 @@ import {
   Member,
   MILESTONE_LABELS,
   MilestoneLabel,
-  members,
   visibleRecordSections,
 } from "../data";
 import { useContent } from "../store";
@@ -67,16 +67,24 @@ function MiniField({
   onChangeText,
   inputRef,
   keyboardType,
+  prefix,
 }: {
   placeholder: string;
   value: string;
   onChangeText: (v: string) => void;
   inputRef?: React.RefObject<TextInput | null>;
   keyboardType?: "default" | "numeric" | "phone-pad";
+  /** Fixed text shown before the input, e.g. "+233". */
+  prefix?: string;
 }) {
   const { c } = useTheme();
   return (
-    <View style={{ marginBottom: 8 }}>
+    <View style={{ marginBottom: 8, flexDirection: "row", alignItems: "center", borderRadius: RADIUS.sm, backgroundColor: c.card }}>
+      {prefix ? (
+        <Txt variant="bodySemi" style={{ fontSize: 12.5, paddingLeft: 12, color: c.mutedForeground }}>
+          {prefix}
+        </Txt>
+      ) : null}
       <TextInput
         ref={inputRef}
         value={value}
@@ -85,7 +93,8 @@ function MiniField({
         placeholderTextColor={c.mutedForeground}
         keyboardType={keyboardType}
         style={{
-          paddingHorizontal: 12,
+          flex: 1,
+          paddingHorizontal: prefix ? 8 : 12,
           paddingVertical: 10,
           borderRadius: RADIUS.sm,
           fontSize: 12.5,
@@ -235,7 +244,7 @@ export default function AdminHub({
         "text/csv",
         toCsv(
           ["Member ID", "Name", "Assembly", "District", "Phone", "Email", "Category", "Day Born", "Attendance %", "Streak", "Member Since"],
-          members.map((m) => [m.memberId, m.name, m.assembly, m.district, m.phone, m.email, m.category, m.dayBorn, m.attendancePct, m.streak, m.since]),
+          liveMembers.map((m) => [m.memberId, m.name, m.assembly, m.district, m.phone, m.email, m.category, m.dayBorn, m.attendancePct, m.streak, m.since]),
         ),
       ),
     );
@@ -249,7 +258,7 @@ export default function AdminHub({
         toCsv(
           ["Member ID", "Name", "Date", "Service", "Status", "Signed By"],
           [
-            ...members.flatMap((m) =>
+            ...liveMembers.flatMap((m) =>
               m.attendanceLogs.map((log) => [m.memberId, m.name, log.date, log.service, log.status, ""]),
             ),
             ...manualAttendance.map((r) => [r.memberId, r.memberName, "Today", r.service, r.status, r.signedBy]),
@@ -323,7 +332,7 @@ export default function AdminHub({
     setCorrectionFirstName(member.firstName ?? names.first);
     setCorrectionMiddleName(member.middleName ?? names.middle);
     setCorrectionLastName(member.lastName ?? names.last);
-    setCorrectionPhone(member.phone);
+    setCorrectionPhone(fromStoredNumber(member.phone));
   };
 
   const [savingCorrection, setSavingCorrection] = useState(false);
@@ -353,7 +362,7 @@ export default function AdminHub({
         full_name: fullName,
         // Sent even when blank: an empty box means "remove the login", which is
         // how an admin undoes a number typed against the wrong person.
-        phone_number: correctionPhone.trim(),
+        phone_number: toLocalNumber(correctionPhone),
       });
       await refreshDirectory();
 
@@ -401,7 +410,7 @@ export default function AdminHub({
       const created = await Api.createMemberRecord({
         member_id: mId.trim() || undefined,
         full_name: fullName,
-        phone_number: mPhone.trim() || undefined,
+        phone_number: toLocalNumber(mPhone) || undefined,
         sex: mSex,
       });
       await refreshDirectory();
@@ -409,8 +418,8 @@ export default function AdminHub({
         ok: true,
         message:
           `${fullName} added as ${created.member_id}.` +
-          (mPhone.trim()
-            ? ` They can sign in with ${mPhone.trim()}.`
+          (mPhone
+            ? ` They can sign in with ${toLocalNumber(mPhone)}.`
             : " Add a phone number when you have one so they can sign in."),
       });
     } catch (e) {
@@ -581,7 +590,7 @@ export default function AdminHub({
     { label: "Assemblies", value: "1", sub: "Active", Icon: ChurchIcon, color: isDark ? "#A78BFA" : BRAND.purple, bg: isDark ? "#7C3AED22" : "#EDE9FE" },
   ];
 
-  const searchResults = members.filter(
+  const searchResults = liveMembers.filter(
     (m) =>
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.memberId.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -870,7 +879,7 @@ export default function AdminHub({
                   <MiniField placeholder="First name" value={correctionFirstName} onChangeText={setCorrectionFirstName} />
                   <MiniField placeholder="Middle name" value={correctionMiddleName} onChangeText={setCorrectionMiddleName} />
                   <MiniField placeholder="Last name" value={correctionLastName} onChangeText={setCorrectionLastName} />
-                  <MiniField placeholder="Phone number (blank removes their login)" value={correctionPhone} onChangeText={setCorrectionPhone} keyboardType="phone-pad" />
+                  <MiniField placeholder="Phone number (blank removes their login)" value={correctionPhone} onChangeText={(t) => setCorrectionPhone(ghanaDigits(t))} keyboardType="phone-pad" prefix={GH_PREFIX} />
                   <MiniSave
                     label={savingCorrection ? "Saving…" : "Save correction"}
                     onPress={saveCorrection}
@@ -971,7 +980,7 @@ export default function AdminHub({
                       <MiniField placeholder="First name" value={mFirstName} onChangeText={setMFirstName} inputRef={nameRef} />
                       <MiniField placeholder="Middle name" value={mMiddleName} onChangeText={setMMiddleName} />
                       <MiniField placeholder="Last name" value={mLastName} onChangeText={setMLastName} />
-                      <MiniField placeholder="Phone number (optional — gives them a login)" value={mPhone} onChangeText={setMPhone} keyboardType="phone-pad" />
+                      <MiniField placeholder="Phone number (optional — gives them a login)" value={mPhone} onChangeText={(t) => setMPhone(ghanaDigits(t))} keyboardType="phone-pad" prefix={GH_PREFIX} />
 
                       {/* Sex decides how the app addresses them — "Mr Mensah"
                           rather than "Kwame" for an adult member. Tapping the

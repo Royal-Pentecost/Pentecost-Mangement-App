@@ -24,11 +24,7 @@ import {
   UpcomingEvent,
   avatarColors,
   defaultGeofence,
-  members as seedMembers,
   homeSlides as seedSlides,
-  notifications as seedNotifications,
-  upcomingEvents as seedEvents,
-  weeklySchedule as seedSchedule,
 } from "./data";
 
 /**
@@ -251,18 +247,18 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
    */
   const [publishError, setPublishError] = useState<string | null>(null);
 
-  // Seeds show something on first paint; the server's copy replaces them as
-  // soon as the member is signed in.
-  const [schedule, setSchedule] = useState<ServiceSlot[]>(seedSchedule);
-  const [events, setEvents] = useState<UpcomingEvent[]>(seedEvents);
+  // From the server only — sample data here showed invented services, events
+  // and notifications whenever a fetch failed.
+  const [schedule, setSchedule] = useState<ServiceSlot[]>([]);
+  const [events, setEvents] = useState<UpcomingEvent[]>([]);
   // From the server only. The sample studies seeded here were what every
   // dashboard showed — invented weeks beside, or instead of, the real ones.
   const [studies, setStudies] = useState<BibleStudy[]>([]);
   const [manualAttendance, setManualAttendance] = useState<ManualAttendanceRecord[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>(seedNotifications);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [dailyVerse, setDailyVerse] = useState<DailyVerse | null>(null);
   const [language, setLanguage] = useState<Lang>("en");
-  const [directory, setDirectory] = useState<Member[]>(seedMembers);
+  const [directory, setDirectory] = useState<Member[]>([]);
   const [geofence, setGeofence] = useState<Geofence>(defaultGeofence);
   const [sessionOrigin, setSessionOrigin] = useState<Geofence | null>(null);
   const [milestoneLog, setMilestoneLog] = useState<MilestoneRecord[]>([]);

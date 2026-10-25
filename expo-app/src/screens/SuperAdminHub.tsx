@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, TextInput, View, useWindowDimensions } fr
 import { LinearGradient } from "expo-linear-gradient";
 
 import { BODY, BRAND, RADIUS, useTheme } from "../theme";
-import { AdminTier, AdminUser, AuditLog, Member, adminTierFilters, adminUsers, auditLogs, members, severityColors, tierColors } from "../data";
+import { AdminTier, AdminUser, AuditLog, Member, adminTierFilters, severityColors, tierColors } from "../data";
 
 /** "10 mins ago" reads better on an audit row than a timestamp. */
 function relativeTime(iso: string): string {
@@ -90,7 +90,7 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
       .catch(() => {});
   }, []);
 
-  const logs = liveLogs.length > 0 ? liveLogs : auditLogs;
+  const logs = liveLogs;
   const directory = roll.length > 0 ? roll : seedDirectory;
 
   /**
@@ -117,7 +117,7 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
     [roll],
   );
 
-  const source = liveAdmins.length > 0 ? liveAdmins : adminUsers;
+  const source = liveAdmins;
 
   const filtered = source
     .filter((a) => {
