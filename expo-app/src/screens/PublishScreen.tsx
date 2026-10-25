@@ -478,7 +478,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
                 tint={e.tint ?? "amber"}
                 Icon={CalendarIcon}
                 title={e.name}
-                subtitle={`${e.tag} event`}
+                subtitle={e.tag}
                 meta={e.date}
                 cover={e.cover}
                 onRemove={() => removeEvent(e.id)}

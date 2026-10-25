@@ -272,7 +272,7 @@ export function toEvent(e: ApiEvent): UpcomingEvent {
     isoDate: e.event_date,
     date,
     name: e.title,
-    tag: e.description || (e.scope === "district" ? "District" : "Assembly"),
+    tag: e.description || (e.scope === "district" ? "District event" : "Assembly event"),
     cover: e.cover_image ?? undefined,
   };
 }

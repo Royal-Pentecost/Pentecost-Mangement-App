@@ -1088,7 +1088,7 @@ export default function MyDashboard({
                 {ev.name}
               </Txt>
               <Txt variant="bodyMedium" style={{ fontSize: 12.5, marginTop: 2, color: c.mutedForeground }}>
-                {ev.tag} event
+                {ev.tag}
               </Txt>
             </View>
             {/* The photograph the admin published with it. */}

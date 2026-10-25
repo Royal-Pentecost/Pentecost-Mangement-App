@@ -455,7 +455,7 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       announce({
         kind: "event",
         title: e.name,
-        body: `${e.tag} event on ${e.date}. Tap for details.`,
+        body: `On ${e.date}. ${e.tag}`,
       });
       return true;
     },
