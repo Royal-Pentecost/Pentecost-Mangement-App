@@ -264,7 +264,7 @@ export default function AdminHub({
           "text/csv",
           toCsv(
             ["Member ID", "Name", "Phone", "Sex", "Date of Birth", "Day-Born Group", "Residence", "Marital Status", "Church Roles",
-             "App Role", "Assembly", `Attendance % (${year})`, "Services Attended", "Services Held", "Current Sunday Streak", "Best Streak"],
+             "App Role", "Assembly", `Sunday Attendance % (${year})`, "Sundays Attended", "Sundays Held", "Current Sunday Streak", "Best Streak"],
             rows,
           ),
         );

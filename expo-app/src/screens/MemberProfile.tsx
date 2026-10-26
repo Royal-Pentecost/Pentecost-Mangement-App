@@ -212,7 +212,7 @@ export default function MemberProfile({
                   </Txt>
                 </View>
                 <Txt style={{ fontSize: 12, color: c.mutedForeground }}>
-                  {member.attended ?? 0} of {member.held ?? 0} services
+                  {member.attended ?? 0} of {member.held ?? 0} Sundays
                 </Txt>
               </View>
             </Card>

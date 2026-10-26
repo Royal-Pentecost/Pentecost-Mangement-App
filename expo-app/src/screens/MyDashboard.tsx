@@ -720,10 +720,11 @@ export default function MyDashboard({
         <ProgressBar pct={me.attendancePct} height={8} fillColor={isDark ? BRAND.blue : BRAND.navy} />
 
         {/* What the two numbers are made of. A bare "0%" on a new member's
-            phone read as a judgement; "0 of 0 services" reads as "not yet". */}
+            phone read as a judgement; "0 of 0 Sundays" reads as "not yet". Both
+            figures count Sunday services only. */}
         {liveMe ? (
           <Txt style={{ fontSize: 11.5, lineHeight: 16, marginTop: 8, color: c.mutedForeground }}>
-            {`${liveMe.attended ?? 0} of ${liveMe.held ?? 0} services this year`}
+            {`${liveMe.attended ?? 0} of ${liveMe.held ?? 0} Sundays this year`}
             {(liveMe.longestStreak ?? 0) > 0 ? ` · best streak ${liveMe.longestStreak}` : ""}
             {liveMe.avgArrival != null ? ` · usually signs in ${arrivalPhrase(liveMe.avgArrival)}` : ""}
           </Txt>

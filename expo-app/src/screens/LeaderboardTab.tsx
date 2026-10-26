@@ -25,11 +25,13 @@ interface BoardRow {
 }
 
 /**
- * Presence first, punctuality second.
+ * Presence first, punctuality second — and Sunday services only. The server
+ * computes every figure here from Sundays alone, so a midweek Bible study or
+ * prayer meeting never moves anyone up or down the board.
  *
- * 1. Annual score — the share of services held that they attended.
- * 2. Services attended — two people at 100% are not equal if one has been
- *    to twelve services and the other to one.
+ * 1. Annual score — the share of Sunday services held that they attended.
+ * 2. Sundays attended — two people at 100% are not equal if one has been
+ *    to twelve Sundays and the other to one.
  * 3. Arrival — who signs in soonest after the session opens. Early in the
  *    year, when many people share a perfect record, this is what separates
  *    them.
@@ -227,8 +229,8 @@ export default function LeaderboardTab({ user, bottomInset }: { user: SessionUse
 
         <Txt style={{ fontSize: 11.5, lineHeight: 16, marginTop: -4, marginBottom: 10, color: c.mutedForeground }}>
           {subTab === "consistent"
-            ? "Ranked by attendance this year. When two people are level, whoever usually signs in sooner after the service opens goes first."
-            : "Members who have missed the most services this year \u2014 worth a call or a visit."}
+            ? "Ranked by Sunday service attendance this year. When two people are level, whoever usually signs in sooner after the service opens goes first."
+            : "Members who have missed the most Sunday services this year \u2014 worth a call or a visit."}
         </Txt>
 
         {data.length === 0 ? (
