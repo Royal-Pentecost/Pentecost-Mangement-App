@@ -22,7 +22,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -41,12 +45,12 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-mark-light.png",
-          "imageWidth": 200,
+          "imageWidth": 176,
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF",
           "dark": {
             "image": "./assets/splash-mark.png",
-            "imageWidth": 200,
+            "imageWidth": 176,
             "resizeMode": "contain",
             "backgroundColor": "#4166F5"
           }
@@ -63,6 +67,12 @@
           "color": "#1E3A8A"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6bc39ab5-e935-425b-a93b-7dddb9c462b0"
+      }
+    },
+    "owner": "plange5344"
   }
 }

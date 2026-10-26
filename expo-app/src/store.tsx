@@ -293,7 +293,14 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
     // Bible studies and the daily verse used to live only in the publishing
     // admin's app: "published" on their phone, absent from everyone else's.
     if (apiStudies) setStudies(apiStudies.map(toBibleStudy).sort((a, b) => a.date.localeCompare(b.date)));
-    if (apiVerses) setDailyVerse(apiVerses[0] ? toDailyVerse(apiVerses[0]) : null);
+    // Today's verse only. The server deletes yesterday's at midnight, but a
+    // phone that has not asked since would still be holding it.
+    if (apiVerses) {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const current = apiVerses.find((v) => v.published_on === today);
+      setDailyVerse(current ? toDailyVerse(current) : null);
+    }
 
     // The assembly's standing fence. An admin's edit in the hub was saved to
     // the server but never read back, so every launch began from the seeded

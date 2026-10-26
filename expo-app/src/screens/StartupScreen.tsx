@@ -17,6 +17,14 @@ export const STARTUP_BG_DARK ="#4166f5";
 
 const ACCENT = "#4166F5";
 
+/**
+ * The seal's size, in dp — the `imageWidth` in app.json's expo-splash-screen
+ * config, so this screen picks the seal up exactly where the native splash
+ * drew it. Android 12+ crops the splash icon to a 192dp circle; at 200 the
+ * seal's outer rings were sliced off, so it must stay under that.
+ */
+const SEAL = 176;
+
 /** Light mode reads as an ivory page; dark mode as a deep purple night. */
 const PALETTE = {
   light: {
@@ -68,7 +76,7 @@ export default function StartupScreen({ onDone }: { onDone: () => void }) {
       const h = e.nativeEvent.layout.height;
       // Drop the seal back down to where the native splash had it: the screen's
       // centre. Half the column, less half the seal, is exactly that distance.
-      markRise.setValue(Math.max(0, h / 2 - 100));
+      markRise.setValue(Math.max(0, h / 2 - SEAL / 2));
       setMeasured(true);
     },
     [markRise, measured],
@@ -118,7 +126,9 @@ export default function StartupScreen({ onDone }: { onDone: () => void }) {
         colors={p.gradient}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
-        style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: insets.bottom }}
+        // No inset padding: the native splash centres on the whole window, and
+        // any padding here would start the seal a few points off its mark.
+        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
       >
         {/* Seal, wordmark and dots are one centred column, so the composition sits
             in the middle of the screen as a whole. */}
@@ -128,8 +138,8 @@ export default function StartupScreen({ onDone }: { onDone: () => void }) {
               hand-off reads as one continuous moment rather than a jump. */}
           <Animated.View
             style={{
-              width: 200,
-              height: 200,
+              width: SEAL,
+              height: SEAL,
               alignItems: "center",
               justifyContent: "center",
               transform: [{ translateY: markRise }],
@@ -140,9 +150,9 @@ export default function StartupScreen({ onDone }: { onDone: () => void }) {
               pointerEvents="none"
               style={{
                 position: "absolute",
-                width: 260,
-                height: 260,
-                borderRadius: 130,
+                width: SEAL * 1.3,
+                height: SEAL * 1.3,
+                borderRadius: SEAL * 0.65,
                 borderWidth: 1,
                 borderColor: p.halo,
                 opacity: ringGrow.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.28, 0] }),
@@ -150,11 +160,11 @@ export default function StartupScreen({ onDone }: { onDone: () => void }) {
               }}
             />
 
-            {/* The mark, at the same 200px the native splash used */}
+            {/* The mark, at the same size the native splash used */}
             <Animated.Image
               source={p.mark}
               resizeMode="contain"
-              style={{ width: 200, height: 200, transform: [{ scale: markScale }] }}
+              style={{ width: SEAL, height: SEAL, transform: [{ scale: markScale }] }}
             />
           </Animated.View>
 

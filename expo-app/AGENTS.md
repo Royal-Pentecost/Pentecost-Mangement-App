@@ -84,6 +84,12 @@ constants. `data.ts` only seeds it. `MyDashboard` and `NotificationsScreen` read
 Adding a service, event, or study also pushes a notification, so members are told without being
 asked to go looking. Swap the seeds for a fetch when the backend lands and the screens do not change.
 
+**Published content expires on its own.** The server deletes a daily verse when its day ends, an event after
+its date, and a weekly-schedule entry once its day has come round in the week it was published
+(`content/expiry.py` on the backend). The app shows only a verse whose `published_on` is today, and only
+events dated today or later. So a phone that hasn't refreshed since midnight still never shows yesterday's
+content.
+
 Every published item can carry a `cover` — a photograph the admin attaches in `CoverPicker`. It is
 uploaded to the server after the item is created and shown with that item: a service's schedule tile, an
 event's card, the top of a study guide. Covers do **not** go into the dashboard slider — that is the four
@@ -186,6 +192,11 @@ the rest render frosted (`expo-blur`) with a COMING SOON pill and are `disabled`
 `src/data.ts` as each assembly is onboarded.
 
 ## Startup
+
+The native splash's `imageWidth` (176) must equal `SEAL` in `StartupScreen.tsx`, so the seal is picked up at
+the same size and place. It must also stay under 192. Android 12+ crops the splash icon to a 192dp circle, and
+at 200 the seal's outer rings were visibly sliced off. The startup column is centred on the whole window, with
+no inset padding, as the native splash is.
 
 The in-app startup runs roughly four seconds with pulsing loading dots, then fades out; a 7.5s failsafe
 guarantees it never strands the user. `app.json`'s splash `backgroundColor` must match `STARTUP_BG` / `STARTUP_BG_DARK` in `StartupScreen.tsx`,
