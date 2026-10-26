@@ -201,7 +201,7 @@ export function SubmitButton({
 export function CoverPicker({
   value,
   onChange,
-  // The dashboard slider is the four ministries and never shows published
+  // The dashboard slider is the five ministries and never shows published
   // photos, so the default promises only what is true everywhere.
   hint = "Shown with what you publish",
 }: {

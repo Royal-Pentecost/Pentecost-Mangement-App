@@ -843,7 +843,7 @@ export function imageSource(cover?: string, fallback?: number) {
 
 /** Carousel slides on the dashboard — a different set from the login backdrop. */
 /**
- * The dashboard slider: the assembly's four ministries, always these, always
+ * The dashboard slider: the assembly's five ministries, always these, always
  * in this order. Published content does not join it — a service or event
  * shows its photo on its own tile and card instead.
  *
@@ -856,6 +856,7 @@ export const homeSlides: Slide[] = [
   { id: "min-women", source: require("../assets/ministry/womens.jpg"), label: "Women's Ministry" },
   { id: "min-youth", source: require("../assets/ministry/youth.jpg"), label: "Youth Ministry" },
   { id: "min-children", source: require("../assets/ministry/children.jpg"), label: "Children's Ministry" },
+  { id: "min-evangelism", source: require("../assets/ministry/evangelism.jpg"), label: "Evangelism Ministry" },
 ];
 
 export interface ServiceSlot {

@@ -92,7 +92,7 @@ content.
 
 Every published item can carry a `cover` — a photograph the admin attaches in `CoverPicker`. It is
 uploaded to the server after the item is created and shown with that item: a service's schedule tile, an
-event's card, the top of a study guide. Covers do **not** go into the dashboard slider — that is the four
+event's card, the top of a study guide. Covers do **not** go into the dashboard slider — that is the five
 ministries in `homeSlides`, fixed, and publishing must never change it. Bundled art is a `require()`
 number and a picked photo is a `{ uri }`, so resolve the two through `imageSource(cover, fallback)`
 rather than branching inline.
@@ -166,10 +166,10 @@ member recognises the destination before tapping. Every one of those buttons ope
 ## Photographs
 
 `assets/slider/*` backs the login/OTP backdrop via `sliderPhotos`; `assets/ministry/*` backs the dashboard
-carousel via `homeSlides` — Men's, Women's, Youth and Children's Ministry, in that order. Those four are crops
+carousel via `homeSlides` — Men's, Women's, Youth, Children's and Evangelism Ministry, in that order. Those five are crops
 cut to the carousel card's ~1.75:1 so `cover` frames the people; a replacement keeps the file name and that
-shape. All four are the church's own photographs. Youth is the Royal Assembly Youth Ministry frame shot, and
-the church asked for it to be kept. Men's, Women's and Children's are from the assembly's youth-cloth day,
+shape. All five are the church's own photographs. Youth is the Royal Assembly Youth Ministry frame shot, and
+the church asked for it to be kept. Men's, Women's, Children's and Evangelism are from the assembly's youth-cloth day,
 cropped to show faces and upper bodies, compressed to about 110–155 KB. Also
 `assets/service/*` for the weekly-service tiles, `assets/assembly/*` for the picker cards, and
 `assets/welcome-bg.jpg` for the post-login splash — that one is drawn `cover` behind a full-screen
