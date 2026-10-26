@@ -220,17 +220,24 @@ export default function DashboardShell(props: {
       {/* Header */}
       <HeaderBlock paddingBottom={18}>
         <View style={{ minHeight: 42, flexDirection: "row", alignItems: "center", gap: 8 }}>
-          {atMemberRoot ? (
-            // Members land here directly, so there is nowhere to go back to —
-            // the logo keeps the header balanced without a dead control.
-            <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" }}>
-              <Image source={pentecostLogo} style={{ width: 32, height: 32 }} resizeMode="contain" />
-            </View>
-          ) : (
-            <HeaderButton onPress={props.onBack}>
-              <ArrowLeftIcon color="#fff" />
-            </HeaderButton>
-          )}
+          <View>
+            {atMemberRoot ? (
+              // Members land here directly, so there is nowhere to go back to —
+              // the logo keeps the header balanced without a dead control.
+              <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" }}>
+                <Image source={pentecostLogo} style={{ width: 32, height: 32 }} resizeMode="contain" />
+              </View>
+            ) : (
+              <HeaderButton onPress={props.onBack}>
+                <ArrowLeftIcon color="#fff" />
+              </HeaderButton>
+            )}
+
+            {/* Role badge, pinned to the corner of the control beside it. On a
+                row of its own it made the header taller and pushed the title
+                and the page down, on every screen an admin opened. */}
+            {loginRole !== "member" ? <RoleBadge superAdmin={loginRole === "superAdmin"} /> : null}
+          </View>
 
           <HeaderTitle eyebrow={eyebrow} title={title.toUpperCase()} />
 
@@ -243,28 +250,6 @@ export default function DashboardShell(props: {
             <View style={{ position: "absolute", top: 7, right: 7, width: 8, height: 8, borderRadius: 4, backgroundColor: "#F87171" }} />
           </HeaderButton>
         </View>
-
-        {/* Role badge — the icon alone carries the role; the label was noise. */}
-        {loginRole !== "member" ? (
-          <View style={{ alignItems: "center", marginTop: 8 }}>
-            <View
-              style={{
-                width: ms(26),
-                height: ms(26),
-                borderRadius: ms(26) / 2,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: loginRole === "superAdmin" ? "rgba(248,113,113,0.22)" : "rgba(134,239,172,0.2)",
-              }}
-            >
-              {loginRole === "superAdmin" ? (
-                <CrownIcon size={14} color="#FECACA" />
-              ) : (
-                <ShieldIcon size={13} color="#BBF7D0" />
-              )}
-            </View>
-          </View>
-        ) : null}
       </HeaderBlock>
 
       {/* Content — cross-fades so switching destination reads as a transition */}
@@ -458,6 +443,35 @@ export default function DashboardShell(props: {
           })}
         </View>
       </View>
+    </View>
+  );
+}
+
+/**
+ * Admin or super admin, as an icon on the corner of the header's left control.
+ * Absolutely positioned, so it takes no room and never moves the title.
+ */
+function RoleBadge({ superAdmin }: { superAdmin: boolean }) {
+  const size = ms(18);
+  return (
+    <View
+      pointerEvents="none"
+      accessibilityLabel={superAdmin ? "Super admin" : "Admin"}
+      style={{
+        position: "absolute",
+        right: -5,
+        bottom: -5,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1.5,
+        borderColor: "#1B2C6B",
+        backgroundColor: superAdmin ? "#DC2626" : "#16A34A",
+      }}
+    >
+      {superAdmin ? <CrownIcon size={9} color="#fff" /> : <ShieldIcon size={9} color="#fff" />}
     </View>
   );
 }
