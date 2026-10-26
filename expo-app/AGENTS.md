@@ -168,8 +168,9 @@ member recognises the destination before tapping. Every one of those buttons ope
 `assets/slider/*` backs the login/OTP backdrop via `sliderPhotos`; `assets/ministry/*` backs the dashboard
 carousel via `homeSlides` — Men's, Women's, Youth and Children's Ministry, in that order. Those four are crops
 cut to the carousel card's ~1.75:1 so `cover` frames the people; a replacement keeps the file name and that
-shape. Two are cut from login photographs (the Women's Ministry headscarf and the youngest member pictured),
-so those two images appear in both sliders until the church supplies its own. Also
+shape. All four are the church's own photographs. Youth is the Royal Assembly Youth Ministry frame shot, and
+the church asked for it to be kept. Men's, Women's and Children's are from the assembly's youth-cloth day,
+cropped to show faces and upper bodies, compressed to about 110–155 KB. Also
 `assets/service/*` for the weekly-service tiles, `assets/assembly/*` for the picker cards, and
 `assets/welcome-bg.jpg` for the post-login splash — that one is drawn `cover` behind a full-screen
 scrim, so it **must be portrait**: a landscape photo loses ~70% of its width to the crop on any phone.
