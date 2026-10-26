@@ -237,33 +237,29 @@ checks the distance again when the mark arrives, so a phone cannot sign from out
 
 ### The map
 
-`AttendanceMap` picks the renderer; both plot the boundary and the member from the same coordinates, so
-the distance and which side of the line they are on stay truthful either way. It checks for MapLibre's
-native module (`TurboModuleRegistry.get("MLRNCameraModule")`) and only then `require`s `MapLibreMap`.
-Expo Go has no such module, and importing the library there throws at load time.
+`AttendanceMap` picks the renderer. Both renderers plot the boundary and the member from the same
+coordinates, so the distance, and which side of the line the member is on, stay truthful either way.
 
-1. **`MapLibreMap` — the device renderer.** MapLibre draws natively through the GPU, so panning and
-   zooming are smooth and no JavaScript bridge sits between a new GPS reading and the dot moving. The
-   imagery is Esri World Imagery with Carto's label layer over it — declared as raster sources in
-   `BASE_STYLE`. **Neither needs an API key**, which is the point: a Google key is tied to a billing
-   account, so this is the difference between the church having a map today and waiting on a card being
-   entered somewhere. Attribution is required and is on.
-2. **`StylisedMap`** — the map we draw ourselves, for the web preview (which has no native module) and for
-   the case where there is no boundary and no fix to centre on.
+1. **`GoogleAttendanceMap` is the device renderer** (`react-native-maps`, `PROVIDER_GOOGLE`). The blue dot is
+   Google's own (`showsUserLocation`): it follows the phone in real time, turns with it, and draws its own
+   accuracy circle. The church boundary is a `Circle`, which `react-native-maps` sizes in metres on the
+   ground, and it turns green while the member is inside. The camera frames the church and the member once,
+   then leaves the map to the member after they pan (`onPanDrag`). A pill toggles Map ↔ Satellite.
+2. **`StylisedMap`** is the map we draw ourselves. It's used for the web preview, for a build made without a
+   key, and when there is no boundary to centre on.
 
-**The boundary is a polygon, not a circle layer.** MapLibre sizes circle layers in *screen* pixels, so a
-fence drawn that way keeps its size as the map zooms and stops describing a real distance. `groundCircle()`
-approximates it as a 72-sided polygon pinned to the ground, which is the whole point of a geofence. The
-accuracy halo is drawn the same way, so a vague reading looks vague at every zoom instead of shrinking
-into a confident-looking dot.
+**The Google key never goes in git.** This repository is public. `app.config.js` reads
+`GOOGLE_MAPS_API_KEY` from the environment, which is an EAS secret for cloud builds. It hands the key to the
+`react-native-maps` plugin and sets `extra.googleMapsConfigured`. `AttendanceMap` shows Google only when
+that flag is true, or in Expo Go, which carries Google's own key. A build without a key would otherwise show
+grey "for development purposes only" tiles. Restrict the key in Google Cloud to the Maps SDK for Android, the
+package `gh.cop.churchattendance` and the signing certificate's SHA-1.
 
-Tiles need a connection and a church hall may not have one — but the geofence check is GPS-only and keeps
-working without them, so losing the imagery must never read as the check having failed.
+Tiles need a connection, and a church hall may not have one. The geofence check is GPS-only and keeps working
+without them, so losing the map must never read as the check having failed.
 
-`react-native-maps` and `react-native-webview` were both removed when MapLibre landed: the first needed a
-Google key the church does not have, and the second was the old Leaflet-in-a-WebView map that MapLibre
-replaces. If Google is ever wanted, it comes back as a dependency, a key in `app.json`, and a prebuild —
-not as a branch left lying in the code.
+MapLibre was removed when Google landed, along with its plugin and the `MapLibreMap` component. Don't leave a
+second renderer lying in the code.
 
 ## Motion
 

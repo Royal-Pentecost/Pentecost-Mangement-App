@@ -1,28 +1,22 @@
 import React from "react";
-import { TurboModuleRegistry } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 
 import { Fix } from "../location";
+import GoogleAttendanceMap from "./GoogleAttendanceMap";
 import StylisedMap from "./StylisedMap";
 
 /**
  * Picks the map renderer for this phone.
  *
- * An installed build (EAS or a local APK) carries MapLibre's native module, so
- * it gets the real satellite map with the member's live GPS dot on it. Expo Go
- * does not bundle that module, and importing the library there throws at load
- * time — so it is required only once the native side is known to exist, and
- * Expo Go keeps the stylised map, plotted from the same coordinates.
+ * Google Maps when it can draw: an installed build made with a
+ * GOOGLE_MAPS_API_KEY (see app.config.js), or Expo Go, which carries Google's
+ * key itself. A build without a key would show Google's grey "for development
+ * purposes only" tiles, so it gets the stylised map instead — plotted from the
+ * same coordinates, so the boundary and the distance stay truthful.
  */
-type MapLibreMapComponent = typeof import("./MapLibreMap").default;
-
-const NativeMap: MapLibreMapComponent | null = (() => {
-  try {
-    if (!TurboModuleRegistry.get("MLRNCameraModule")) return null;
-    return (require("./MapLibreMap") as { default: MapLibreMapComponent }).default;
-  } catch {
-    return null;
-  }
-})();
+const googleReady =
+  Constants.expoConfig?.extra?.googleMapsConfigured === true ||
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export default function AttendanceMap({
   fence,
@@ -35,7 +29,7 @@ export default function AttendanceMap({
   inside: boolean;
   height: number;
 }) {
-  // With no boundary there is nothing to centre the satellite view on.
-  if (NativeMap && fence) return <NativeMap fence={fence} fix={fix} inside={inside} height={height} />;
+  // With no boundary there is nothing to centre the map on.
+  if (googleReady && fence) return <GoogleAttendanceMap fence={fence} fix={fix} inside={inside} height={height} />;
   return <StylisedMap fix={fix} fence={fence} inside={inside} height={height} />;
 }
