@@ -364,6 +364,7 @@ export default function DashboardShell(props: {
           <AttendanceTab
             sessionActive={props.sessionActive}
             attendanceMarked={props.attendanceMarked}
+            attendanceError={props.attendanceError}
             onMarkAttendance={props.onMarkAttendance}
             bottomInset={contentBottomInset}
           />

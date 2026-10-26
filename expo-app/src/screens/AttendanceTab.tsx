@@ -22,11 +22,14 @@ function saySpan(m: number): string {
 export default function AttendanceTab({
   sessionActive,
   attendanceMarked,
+  attendanceError,
   onMarkAttendance,
   bottomInset,
 }: {
   sessionActive: boolean;
   attendanceMarked: boolean;
+  /** Why the last tap was refused, by the app or the server. */
+  attendanceError: string | null;
   onMarkAttendance: () => void;
   bottomInset: number;
 }) {
@@ -53,9 +56,11 @@ export default function AttendanceTab({
       ? "Attendance Marked"
       : !fix
         ? "Finding your location…"
-        : !locationOk
-          ? "Out of Range — move inside the auditorium"
-          : "Mark Attendance Now";
+        : certainty === "poor"
+          ? "GPS Too Weak to Confirm"
+          : !inside
+            ? "Out of Range — move inside the church grounds"
+            : "Mark Attendance Now";
 
   const permissionProblem = phase === "denied" || phase === "disabled";
   const userColor = inside ? BRAND.green : "#EF4444";
@@ -216,6 +221,16 @@ export default function AttendanceTab({
         <Txt variant="bodyMedium" style={{ fontSize: 12, marginTop: 8, textAlign: "center", color: c.mutedForeground }}>
           {blockedReason}
         </Txt>
+      ) : null}
+
+      {/* A refused tap says why. This screen never showed it, so a tap the
+          server turned down looked exactly like a button that did nothing. */}
+      {attendanceError && !attendanceMarked ? (
+        <View style={{ marginTop: 10, padding: 10, borderRadius: RADIUS.sm, backgroundColor: isDark ? "#DC262622" : "#FEE2E2" }}>
+          <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, color: isDark ? "#FCA5A5" : "#B91C1C" }}>
+            {attendanceError}
+          </Txt>
+        </View>
       ) : null}
 
       {attendanceMarked ? (

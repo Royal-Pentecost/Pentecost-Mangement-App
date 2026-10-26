@@ -202,9 +202,17 @@ lives in `src/location.tsx` (`LocationProvider` / `useLocation()`), so no screen
   app opens, so the attendance screen already knows where the member stands. `startWatching()` is
   reference-counted — the map subscribes while it is on screen and the OS subscription stops when the last
   caller lets go, because a continuous GPS stream is the most expensive thing the app does to a battery.
-- **`certainty`, not just `inside`.** A phone reporting ±80m while 60m outside a 100m fence cannot support
-  the claim either way. `certainty` grades each fix `confident` / `borderline` / `poor`, and a `poor` fix
-  never signs attendance. Gate on `inside && certainty !== "poor"`, never on `inside` alone.
+- **`certainty`, not just `inside`.** `certainty` grades each fix `confident` / `borderline` / `poor`, and a
+  `poor` fix never signs attendance. Gate on `inside && certainty !== "poor"`, never on `inside` alone. `poor`
+  means coarser than `max(150m, 1.5 × radius)`. A borderline fix still signs, because the server measures the
+  same point.
+- **A precise reading outranks a vaguer one for 30s** (`KEEP_PRECISE_FOR`). Indoors a phone alternates
+  between satellite fixes and Wi-Fi/cell ones every few seconds. Taking each as it came flipped the Mark
+  button off under the member's finger, and the tap did nothing.
+- **`approximate`** is true when the member granted only approximate location (Android 12+ "Approximate", iOS
+  Precise off). Those readings are kilometres wide. `blockedReason` tells them to choose Precise, and
+  `refresh()` asks again, which is how Android offers the upgrade. `refresh()` also offers Google Location
+  Accuracy on Android.
 - **`blockedReason`** is the single place that phrases why the button is dark. Read it; don't write a
   second explanation in a screen.
 
@@ -219,7 +227,9 @@ checks the distance again when the mark arrives, so a phone cannot sign from out
 ### The map
 
 `AttendanceMap` picks the renderer; both plot the boundary and the member from the same coordinates, so
-the distance and which side of the line they are on stay truthful either way.
+the distance and which side of the line they are on stay truthful either way. It checks for MapLibre's
+native module (`TurboModuleRegistry.get("MLRNCameraModule")`) and only then `require`s `MapLibreMap`.
+Expo Go has no such module, and importing the library there throws at load time.
 
 1. **`MapLibreMap` — the device renderer.** MapLibre draws natively through the GPU, so panning and
    zooming are smooth and no JavaScript bridge sits between a new GPS reading and the dot moving. The

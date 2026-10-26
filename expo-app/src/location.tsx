@@ -7,9 +7,9 @@ import { Geofence } from "./data";
 /**
  * Where the member actually is.
  *
- * The rule the app enforces is simple: attendance may only be signed while the
- * admin's session is open *and* the phone is standing inside the geofence that
- * admin drew. Everything needed to decide that lives here, so no screen has to
+ * The rule the app enforces is simple: attendance may only be signed while a
+ * session is open *and* the phone is standing inside the church's fixed
+ * geofence. Everything needed to decide that lives here, so no screen has to
  * re-derive it and the two can never disagree.
  *
  * Accuracy matters more than it looks. A phone that reports ±80m while standing
@@ -59,9 +59,19 @@ interface LocationValue {
   /** True only when we have a fix and it sits within the fence. */
   inside: boolean;
   certainty: Certainty;
+  /**
+   * The member allowed only approximate location (Android's "Approximate",
+   * iOS's Precise switched off). Readings are then kilometres wide, so no fix
+   * can ever place them inside the church.
+   */
+  approximate: boolean;
   /** Human-readable reason the member cannot sign right now, or null if they can. */
   blockedReason: string | null;
-  /** Ask again after a denial, or kick off a fresh fix. */
+  /**
+   * Ask again after a denial, or kick off a fresh fix. On Android this also
+   * offers to switch on Google Location Accuracy, which is what turns an
+   * indoor reading from "within a few hundred metres" into "within a few".
+   */
   refresh: () => Promise<void>;
   /** Follow the phone continuously. Returns a stop function. Used by the map. */
   startWatching: () => () => void;
@@ -102,25 +112,50 @@ export function parseGeofence(g: Geofence): { lat: number; lng: number; radius: 
 /** A fix older than this is stale enough to be worth replacing before trusting it. */
 const STALE_AFTER = 60_000;
 
+/**
+ * How long a precise reading outranks a vaguer one that follows it.
+ *
+ * Indoors a phone alternates between satellite fixes (±10m) and Wi-Fi/cell ones
+ * (±150m) every few seconds. Taking each as it came graded the member "inside"
+ * one moment and "too weak" the next, so the Mark button switched itself off
+ * under their finger and the tap did nothing. A worse reading now replaces a
+ * better one only once the better one is this old — long enough to ride out
+ * the wobble, short enough that someone walking out is noticed.
+ */
+const KEEP_PRECISE_FOR = 30_000;
+
+/**
+ * Accuracy, in metres, beyond which a reading cannot place anyone. Never
+ * tighter than one and a half fence radii, so a bigger church grounds is not
+ * held to a stricter standard than its own boundary.
+ */
+const POOR_ACCURACY = 150;
+
 export function LocationProvider({ geofence, children }: { geofence: Geofence; children: React.ReactNode }) {
   const [phase, setPhase] = useState<LocationPhase>("idle");
   const [fix, setFix] = useState<Fix | null>(null);
+  const [approximate, setApproximate] = useState(false);
   const watchers = useRef(0);
   const subscription = useRef<Location.LocationSubscription | null>(null);
 
   const record = useCallback((p: Location.LocationObject) => {
-    setFix({
+    const next: Fix = {
       lat: p.coords.latitude,
       lng: p.coords.longitude,
       // Android can report a null accuracy; treat that as "unknown but wide".
       accuracy: p.coords.accuracy ?? 999,
       at: p.timestamp,
+    };
+    setFix((prev) => {
+      if (!prev) return next;
+      const vaguer = next.accuracy > prev.accuracy * 1.5 + 10;
+      return vaguer && next.at - prev.at < KEEP_PRECISE_FOR ? prev : next;
     });
     setPhase("ready");
   }, []);
 
   /** Ask for permission and take one reading. Safe to call repeatedly. */
-  const acquire = useCallback(async () => {
+  const acquire = useCallback(async (userAsked = false) => {
     try {
       // Web asks for permission on the first read, so there is nothing to enable.
       if (Platform.OS !== "web") {
@@ -132,10 +167,19 @@ export function LocationProvider({ geofence, children }: { geofence: Geofence; c
       }
 
       setPhase((p) => (p === "ready" ? p : "asking"));
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== Location.PermissionStatus.GRANTED) {
+      // Asking again is also how Android 12+ offers to upgrade "Approximate"
+      // to "Precise", so a member who chose wrong can put it right from here.
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== Location.PermissionStatus.GRANTED) {
         setPhase("denied");
         return;
+      }
+      setApproximate(permission.android?.accuracy === "coarse" || permission.ios?.accuracy === "reduced");
+
+      if (userAsked && Platform.OS === "android") {
+        // Google's own prompt to use Wi-Fi and cell towers alongside GPS.
+        // Rejects when the member says no, which changes nothing.
+        await Location.enableNetworkProviderAsync().catch(() => {});
       }
 
       setPhase((p) => (p === "ready" ? p : "locating"));
@@ -160,16 +204,28 @@ export function LocationProvider({ geofence, children }: { geofence: Geofence; c
     void acquire();
   }, [acquire]);
 
-  // Coming back from the OS settings screen is the usual way a denial or a
-  // switched-off GPS gets fixed, so re-check on foreground.
+  // Coming back from the OS settings screen is the usual way a denial, a
+  // switched-off GPS or approximate-only location gets fixed, so re-check on
+  // foreground.
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active" && (phase === "denied" || phase === "disabled" || phase === "unavailable")) {
+      if (state !== "active") return;
+      if (phase === "denied" || phase === "disabled" || phase === "unavailable") {
         void acquire();
+      } else if (approximate) {
+        // Read the setting without asking — asking again would put the
+        // permission dialog in front of them every time they open the app.
+        void Location.getForegroundPermissionsAsync()
+          .then((p) => {
+            const stillApproximate = p.android?.accuracy === "coarse" || p.ios?.accuracy === "reduced";
+            setApproximate(stillApproximate);
+            if (!stillApproximate) void acquire();
+          })
+          .catch(() => {});
       }
     });
     return () => sub.remove();
-  }, [acquire, phase]);
+  }, [acquire, phase, approximate]);
 
   /**
    * Continuous tracking, reference-counted: the map and any other caller share
@@ -223,9 +279,12 @@ export function LocationProvider({ geofence, children }: { geofence: Geofence; c
     const within = d <= fence.radius;
 
     // If the accuracy circle reaches across the boundary, the reading cannot
-    // settle the question on its own.
+    // settle the question on its own — but it still leans one way, and the
+    // server measures the same point. Only a reading too coarse to place anyone
+    // at all is refused.
     const straddles = Math.abs(d - fence.radius) < fix.accuracy;
-    const grade: Certainty = fix.accuracy > 120 ? "poor" : straddles ? "borderline" : "confident";
+    const tooCoarse = fix.accuracy > Math.max(POOR_ACCURACY, fence.radius * 1.5);
+    const grade: Certainty = tooCoarse ? "poor" : straddles ? "borderline" : "confident";
 
     return { distance: d, inside: within, certainty: grade };
   }, [fix, fence]);
@@ -236,14 +295,21 @@ export function LocationProvider({ geofence, children }: { geofence: Geofence; c
     if (phase === "disabled") return "Location services are switched off on this phone.";
     if (phase === "unavailable") return "No GPS signal yet. Step near a window or outside for a moment.";
     if (!fix) return "Finding your location…";
-    if (certainty === "poor") return "The GPS signal is too weak to confirm where you are.";
-    if (!inside) return "You are outside the auditorium boundary.";
+    if (approximate && certainty === "poor") {
+      return "Your phone is sharing only your approximate location. Tap Refresh my location and choose Precise, or turn on Precise location for this app in Settings.";
+    }
+    if (certainty === "poor") {
+      return "The GPS signal is too weak to confirm where you are. Tap Refresh my location, or step near a door or window for a moment.";
+    }
+    if (!inside) return "You are outside the church's attendance boundary.";
     return null;
-  }, [fence, phase, fix, inside, certainty]);
+  }, [fence, phase, fix, inside, certainty, approximate]);
+
+  const refresh = useCallback(() => acquire(true), [acquire]);
 
   const value = useMemo<LocationValue>(
-    () => ({ phase, fix, distance, inside, certainty, blockedReason, refresh: acquire, startWatching }),
-    [phase, fix, distance, inside, certainty, blockedReason, acquire, startWatching],
+    () => ({ phase, fix, distance, inside, certainty, approximate, blockedReason, refresh, startWatching }),
+    [phase, fix, distance, inside, certainty, approximate, blockedReason, refresh, startWatching],
   );
 
   return <LocationCtx.Provider value={value}>{children}</LocationCtx.Provider>;
