@@ -4,11 +4,12 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { BRAND, RADIUS, useTheme } from "../theme";
 import { Elder, pentecostLogo } from "../data";
-import { Avatar, Btn, Card, Pulse, Txt, shadow } from "../ui";
+import { Btn, Card, Pulse, Txt, shadow } from "../ui";
 import { ChatIcon, ClockIcon, PhoneIcon, WhatsappIcon } from "../icons";
 import { contactLinks, openContact } from "../contact";
 import { PopIn } from "../motion";
 import { usePullToRefresh } from "../refresh";
+import { ViewableAvatar } from "../components/PhotoViewer";
 
 export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bottomInset: number }) {
   // Pull down anywhere on this page to reload everything the app shows.
@@ -28,7 +29,8 @@ export default function ElderProfile({ elder, bottomInset }: { elder: Elder; bot
         >
           <View style={{ paddingHorizontal: 20, paddingTop: 26, paddingBottom: 24, alignItems: "center" }}>
             <View style={{ marginBottom: 16 }}>
-              <Avatar
+              <ViewableAvatar
+                name={elder.name}
                 photo={elder.photo}
                 initials={elder.avatar}
                 color={elder.avatarColor}

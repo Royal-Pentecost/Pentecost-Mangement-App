@@ -6,9 +6,10 @@ import { BRAND, RADIUS, TintName, useTheme, ms } from "../theme";
 import { LANGUAGES, SessionUser, SettingsTopic } from "../data";
 import { useContent } from "../store";
 import { BellIcon, BookIcon, CameraIcon, ChatIcon, ChevronRightIcon, FileTextIcon, InfoIcon, LockIcon, LogOutIcon, MoonIcon, SunIcon, UserIcon } from "../icons";
-import { Avatar, Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
+import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
 import { FadeIn } from "../motion";
 import { usePullToRefresh } from "../refresh";
+import { ViewableAvatar } from "../components/PhotoViewer";
 
 interface Row {
   key: SettingsTopic;
@@ -104,7 +105,9 @@ export default function SettingsTab({
       {/* Profile */}
       <Card style={{ padding: 17, alignItems: "center" }}>
         <View style={{ marginBottom: 14 }}>
-          <Avatar
+          {/* Tap the photo to see it full size; the camera badge replaces it. */}
+          <ViewableAvatar
+            name={user.name}
             photo={user.photo}
             initials={user.avatar}
             color={user.avatarColor}

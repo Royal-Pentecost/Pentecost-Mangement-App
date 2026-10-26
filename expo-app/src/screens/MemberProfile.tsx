@@ -10,6 +10,7 @@ import { contactLinks, openContact } from "../contact";
 import { Avatar, Btn, Card, ProgressBar, Pulse, Txt, shadow } from "../ui";
 import { SwapFade } from "../motion";
 import { usePullToRefresh } from "../refresh";
+import { ViewableAvatar } from "../components/PhotoViewer";
 
 type ProfileTab = "attendance" | "roles" | "milestones";
 
@@ -76,7 +77,8 @@ export default function MemberProfile({
       >
         <View style={{ paddingHorizontal: 20, paddingTop: 26, paddingBottom: 20, alignItems: "center" }}>
           <View style={{ marginBottom: 12 }}>
-            <Avatar
+            <ViewableAvatar
+              name={member.name}
               photo={member.photo}
               initials={member.avatar}
               color={member.avatarColor}
