@@ -179,14 +179,6 @@ export const fetchRecordsForSession = (session: string) =>
 export interface OpenSessionInput {
   assembly: string;
   service_name: string;
-  /**
-   * Where the admin is standing. Leave it out and the server uses the
-   * assembly's own fence — which is what should happen whenever the admin's
-   * GPS is too vague to anchor a service on.
-   */
-  centre?: { lat: number; lng: number };
-  /** Leave out to use the assembly's configured radius. */
-  radius?: number;
 }
 
 /**
@@ -198,6 +190,10 @@ export interface OpenSessionInput {
  * server: the admin's own phone showed "Attendance Open" from local state while
  * every member's phone asked the server, found nothing open, and kept the
  * button dark.
+ *
+ * No coordinates are sent. The session is measured from the church's fixed
+ * location, which the server copies from the assembly and returns on the
+ * session; it ignores any centre or radius in the request.
  */
 export const openSession = (input: OpenSessionInput) =>
   request<ApiAttendanceSession>("/api/v1/attendance/sessions/", {
@@ -205,15 +201,6 @@ export const openSession = (input: OpenSessionInput) =>
     body: {
       assembly_id: input.assembly,
       service_name: input.service_name,
-      ...(input.centre
-        ? {
-            // Six places is ~11cm — finer than any phone fix, and all the
-            // column holds.
-            geofence_center_lat: input.centre.lat.toFixed(6),
-            geofence_center_lng: input.centre.lng.toFixed(6),
-          }
-        : {}),
-      ...(input.radius ? { geofence_radius_meters: Math.round(input.radius) } : {}),
     },
   });
 

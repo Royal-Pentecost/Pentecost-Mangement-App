@@ -208,11 +208,13 @@ lives in `src/location.tsx` (`LocationProvider` / `useLocation()`), so no screen
 - **`blockedReason`** is the single place that phrases why the button is dark. Read it; don't write a
   second explanation in a screen.
 
-**The session anchors to the admin, not to the stored fence.** `openSessionAt()` records where the admin
-was standing when they opened the session, and members are measured against *that* — so a service held in
-a school hall or under a canopy works without anyone editing coordinates. `sessionOrigin ?? geofence` in
-`LocationBridge` is the whole rule. With no usable fix for the admin the session falls back to the
-configured geofence: a wrongly-guessed centre would lock out the entire congregation.
+**Every session is measured from the church's fixed location, never from the admin.** The church's
+centre and radius are set once in the Admin Hub (Geofence Config) and stored on the assembly. Opening a
+session sends no coordinates. The server copies the assembly's fence onto the session and ignores any
+centre in the request, and it refuses to open a session for an assembly with no fence. The app then calls
+`openSessionAt()` with the centre the server returned, so `sessionOrigin ?? geofence` in `LocationBridge`
+always resolves to the church. A member may sign only while their own fix is within that radius. The server
+checks the distance again when the mark arrives, so a phone cannot sign from outside.
 
 ### The map
 

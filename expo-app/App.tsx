@@ -125,7 +125,6 @@ function ChurchApp() {
   // Where the member actually is. `certainty` guards against a fix too coarse
   // to place them on one side of the boundary or the other.
   const { inside: userInside, certainty, fix: adminFix, distance: distanceFromCentre, startWatching } = useLocation();
-  const adminCertainty = certainty;
   const { geofence, openSessionAt, closeSession } = useContent();
 
   // Keep the dashboard's geofence status current even when the Attendance tab
@@ -174,18 +173,14 @@ function ChurchApp() {
       return;
     }
 
-    // Anchor the session where the admin actually is. Without a usable fix the
-    // centre is left out and the server uses the assembly's own fence — never
-    // the app's local default, which is a placeholder in another town and
-    // would have put the whole congregation "outside".
-    const trustedFix = adminFix && adminCertainty !== "poor" ? adminFix : null;
-
+    // No position is sent: every session is measured from the church's fixed
+    // location, which the server copies from the assembly. Where the admin is
+    // standing has no say in who may sign.
     let created;
     try {
       created = await Api.openSession({
         assembly: assemblyId,
         service_name: "Service",
-        centre: trustedFix ? { lat: trustedFix.lat, lng: trustedFix.lng } : undefined,
       });
     } catch (e) {
       // Not open anywhere, so not open here either. Showing "Attendance Open"
