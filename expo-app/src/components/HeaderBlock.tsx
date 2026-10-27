@@ -24,7 +24,7 @@ export function HeaderBlock({
 
   return (
     <LinearGradient
-      colors={isDark ? ["#16255A", "#0F1B44"] : ["#22357F", "#1B2C6B"]}
+      colors={isDark ? ["#1A2B66", "#132050", "#0D1838"] : ["#2A47A6", "#1E3A8A", "#172C6B"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[
@@ -34,6 +34,8 @@ export function HeaderBlock({
           paddingHorizontal: SCREEN_PAD,
           borderBottomLeftRadius: RADIUS.header,
           borderBottomRightRadius: RADIUS.header,
+          borderBottomWidth: 2,
+          borderBottomColor: "rgba(245,158,11,0.55)",
         },
         style,
       ]}
@@ -47,7 +49,7 @@ export function HeaderBlock({
 export function HeaderButton({
   onPress,
   children,
-  size = 36,
+  size = 40,
 }: {
   onPress?: () => void;
   children: React.ReactNode;
@@ -56,6 +58,7 @@ export function HeaderButton({
   return (
     <Btn
       onPress={onPress}
+      hitSlop={8}
       style={{
         width: ms(size),
         height: ms(size),
@@ -63,7 +66,9 @@ export function HeaderButton({
         borderRadius: ms(size) / 2,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(255,255,255,0.16)",
+        backgroundColor: "rgba(255,255,255,0.14)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.18)",
       }}
     >
       {children}
@@ -92,7 +97,7 @@ export function HeaderTitle({
       <Txt
         variant="bodySemi"
         numberOfLines={1}
-        style={{ fontSize: 9.5, letterSpacing: 1.3, textTransform: "uppercase", color: "rgba(255,255,255,0.62)" }}
+        style={{ fontSize: 10, letterSpacing: 1.3, textTransform: "uppercase", color: "rgba(255,255,255,0.74)" }}
       >
         {eyebrow}
       </Txt>
@@ -103,8 +108,8 @@ export function HeaderTitle({
         minimumFontScale={0.82}
         style={{
           width: "100%",
-          fontSize: 16.5,
-          lineHeight: 19,
+          fontSize: 17.5,
+          lineHeight: 21,
           marginTop: 2,
           textAlign: align,
           color: "#fff",
@@ -130,6 +135,8 @@ export function HeaderChip({ label, dotColor = "#F59E0B" }: { label: string; dot
         paddingVertical: 4.5,
         borderRadius: RADIUS.pill,
         backgroundColor: "rgba(255,255,255,0.14)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.16)",
       }}
     >
       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />

@@ -151,6 +151,8 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string, devCo
                   placeholderTextColor="rgba(255,255,255,0.5)"
                   style={{
                     flex: 1,
+                    // Without this the field keeps its intrinsic width and runs past the card.
+                    minWidth: 0,
                     height: 48,
                     paddingHorizontal: 16,
                     borderRadius: 12,

@@ -381,7 +381,7 @@ export default function DashboardShell(props: {
         style={[
           {
             paddingBottom: insets.bottom + 6,
-            paddingTop: 9,
+            paddingTop: 10,
             paddingHorizontal: 6,
             backgroundColor: c.card,
             borderTopLeftRadius: RADIUS.xl,
@@ -392,10 +392,10 @@ export default function DashboardShell(props: {
           // Shadow cast upward, so the bar lifts off the content it overlaps.
           !isDark
             ? {
-                shadowColor: "#0F172A",
-                shadowOffset: { width: 0, height: -4 },
-                shadowOpacity: 0.06,
-                shadowRadius: 14,
+                shadowColor: "#1E2A55",
+                shadowOffset: { width: 0, height: -6 },
+                shadowOpacity: 0.08,
+                shadowRadius: 18,
                 elevation: 12,
               }
             : null,
@@ -408,8 +408,11 @@ export default function DashboardShell(props: {
               <Btn
                 key={id}
                 onPress={() => props.onChangeTab(id)}
+                accessibilityRole="tab"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: active }}
                 scale={0.92}
-                style={{ flex: 1, alignItems: "center", gap: 3, paddingVertical: 2 }}
+                style={{ flex: 1, alignItems: "center", gap: 4, paddingVertical: 2, minHeight: 44 }}
               >
                 {/* Active pill grows behind the icon as the tab is selected. */}
                 <TabGlow active={active} color={c.primary} />
@@ -434,7 +437,7 @@ export default function DashboardShell(props: {
                 <Txt
                   variant={active ? "bodySemi" : "bodyMedium"}
                   numberOfLines={1}
-                  style={{ fontSize: 10, letterSpacing: 0.1, color: active ? c.primary : c.mutedForeground }}
+                  style={{ fontSize: 10.5, letterSpacing: 0.1, color: active ? c.primary : c.mutedForeground }}
                 >
                   {label}
                 </Txt>

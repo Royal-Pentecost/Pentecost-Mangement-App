@@ -245,14 +245,14 @@ export function RowCard({
   const { c } = useTheme();
 
   const body = (
-    <Card style={[{ padding: 12, flexDirection: "row", alignItems: "center", gap: 11 }, style]}>
+    <Card style={[{ padding: 14, flexDirection: "row", alignItems: "center", gap: 12 }, style]}>
       {leading}
       <View style={{ flex: 1 }}>
         <Txt variant="displayBold" numberOfLines={1} style={{ fontSize: 15, color: c.foreground }}>
           {title}
         </Txt>
         {subtitle ? (
-          <Txt variant="bodyMedium" numberOfLines={1} style={{ fontSize: 12.5, marginTop: 2, color: c.mutedForeground }}>
+          <Txt variant="bodyMedium" numberOfLines={1} style={{ fontSize: 13, marginTop: 3, color: c.mutedForeground }}>
             {subtitle}
           </Txt>
         ) : null}
@@ -270,10 +270,13 @@ export function RowCard({
 export function SectionHeading({ label, trailing, style }: { label: string; trailing?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
   return (
-    <View style={[{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16, marginBottom: 8 }, style]}>
-      <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: c.mutedForeground }}>
-        {label}
-      </Txt>
+    <View style={[{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 10 }, style]}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ width: 3, height: ms(12), borderRadius: 2, backgroundColor: c.accent }} />
+        <Txt variant="bodySemi" accessibilityRole="header" style={{ fontSize: 11.5, letterSpacing: 1.1, textTransform: "uppercase", color: c.mutedForeground }}>
+          {label}
+        </Txt>
+      </View>
       {trailing}
     </View>
   );
@@ -453,24 +456,27 @@ export function Avatar({
 
 // ─── Shadows ──────────────────────────────────────────────────────────────────
 
+/** Navy rather than black, so shadows read as part of the brand instead of grime. */
+const SHADOW_TINT = "#1E2A55";
+
 /** Soft, wide, low-opacity shadows — the reference design barely tints the page. */
 export const shadow = (level: "sm" | "md" | "lg" = "sm") => {
   const cfg = {
-    sm: { radius: 10, opacity: 0.05, elevation: 1, offset: 2 },
-    md: { radius: 18, opacity: 0.07, elevation: 3, offset: 5 },
-    lg: { radius: 26, opacity: 0.11, elevation: 7, offset: 9 },
+    sm: { radius: 14, opacity: 0.07, elevation: 2, offset: 3 },
+    md: { radius: 22, opacity: 0.09, elevation: 4, offset: 6 },
+    lg: { radius: 30, opacity: 0.13, elevation: 8, offset: 10 },
   }[level];
 
   return Platform.select({
     ios: {
-      shadowColor: "#0F172A",
+      shadowColor: SHADOW_TINT,
       shadowOffset: { width: 0, height: cfg.offset },
       shadowOpacity: cfg.opacity,
       shadowRadius: cfg.radius,
     },
     android: { elevation: cfg.elevation },
     default: {
-      shadowColor: "#0F172A",
+      shadowColor: SHADOW_TINT,
       shadowOffset: { width: 0, height: cfg.offset },
       shadowOpacity: cfg.opacity,
       shadowRadius: cfg.radius,
@@ -501,8 +507,8 @@ export function Pill({
         {
           backgroundColor: bg,
           borderRadius: 999,
-          paddingHorizontal: 8,
-          paddingVertical: 2,
+          paddingHorizontal: 9,
+          paddingVertical: 3,
           borderWidth: borderColor ? 1 : 0,
           borderColor,
         },

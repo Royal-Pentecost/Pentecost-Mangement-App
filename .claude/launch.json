@@ -3,7 +3,9 @@
   "configurations": [
     {
       "name": "expo-web",
-      "url": "http://localhost:8082",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--web", "--port", "8082", "--clear"],
+      "cwd": "expo-app",
       "port": 8082
     }
   ]

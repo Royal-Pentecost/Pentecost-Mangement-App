@@ -21,37 +21,39 @@ export interface Palette {
 }
 
 export const lightPalette: Palette = {
-  background: "#F5F6FA",
-  foreground: "#111827",
+  background: "#F3F5FA",
+  foreground: "#0F172A",
   card: "#FFFFFF",
-  cardForeground: "#111827",
+  cardForeground: "#0F172A",
   primary: "#1E3A8A",
   primaryForeground: "#FFFFFF",
-  secondary: "#EFF6FF",
+  secondary: "#EEF2FF",
   secondaryForeground: "#1E3A8A",
-  muted: "#F3F4F8",
-  mutedForeground: "#6B7280",
-  accent: "#D97706",
+  muted: "#EDF0F6",
+  // Darker than the old #6B7280 so secondary text clears WCAG AA (4.5:1) on the page background too.
+  mutedForeground: "#566174",
+  // Deep gold: #D97706 measured only 3.2:1 on white, too faint for gold text.
+  accent: "#B45309",
   accentForeground: "#FFFFFF",
-  border: "#ECEFF4",
+  border: "#E2E7F0",
   ring: "#1E3A8A",
 };
 
 export const darkPalette: Palette = {
-  background: "#0A1020",
+  background: "#0A0F1E",
   foreground: "#F1F5F9",
-  card: "#141C2E",
+  card: "#131B2E",
   cardForeground: "#F1F5F9",
-  primary: "#60A5FA",
-  primaryForeground: "#0A1020",
+  primary: "#7AB3FF",
+  primaryForeground: "#0A0F1E",
   secondary: "#1E3A8A",
-  secondaryForeground: "#BFDBFE",
-  muted: "#1B2437",
-  mutedForeground: "#93A2B8",
+  secondaryForeground: "#C7DBFF",
+  muted: "#1A2338",
+  mutedForeground: "#A3B1C6",
   accent: "#FBBF24",
-  accentForeground: "#0A1020",
-  border: "#243049",
-  ring: "#60A5FA",
+  accentForeground: "#0A0F1E",
+  border: "#26324D",
+  ring: "#7AB3FF",
 };
 
 /** Display font (was 'Outfit' on the web build) */
@@ -77,18 +79,18 @@ export const BODY = {
  * tile passes through `ms()`, so nudging this rescales the app coherently
  * instead of leaving some screens tighter than others.
  */
-export const UI_SCALE = 0.86;
+export const UI_SCALE = 0.9;
 
 /** Scale a design number by `UI_SCALE`, kept to half-pixels so text stays crisp. */
 export const ms = (n: number) => Math.round(n * UI_SCALE * 2) / 2;
 
-/** Corner radii. Tighter than the web build — big radii read as chunky on a phone. */
+/** Corner radii. Softer than before, still tighter than the web build — big radii read as chunky on a phone. */
 export const RADIUS = {
-  sm: 9,
-  md: 12,
-  lg: 15,
-  xl: 20,
-  header: 24,
+  sm: 10,
+  md: 13,
+  lg: 17,
+  xl: 22,
+  header: 28,
   pill: 999,
 };
 
