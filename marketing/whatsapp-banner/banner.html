@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Royal Membership App banner</title>
+<!--
+  WhatsApp banner announcing the Royal Membership App.
+  Two sizes from one layout: open as banner.html?size=chat (1080x1350, a chat
+  image) or banner.html?size=status (1080x1920, WhatsApp Status).
+  Fonts and photos come from the app itself, so it renders offline.
+-->
+<style>
+  @font-face { font-family: "Outfit"; font-weight: 700; src: url("../../expo-app/node_modules/@expo-google-fonts/outfit/700Bold/Outfit_700Bold.ttf"); }
+  @font-face { font-family: "Outfit"; font-weight: 800; src: url("../../expo-app/node_modules/@expo-google-fonts/outfit/800ExtraBold/Outfit_800ExtraBold.ttf"); }
+  @font-face { font-family: "Inter"; font-weight: 500; src: url("../../expo-app/node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf"); }
+  @font-face { font-family: "Inter"; font-weight: 600; src: url("../../expo-app/node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf"); }
+
+  :root {
+    --navy: #1E3A8A;
+    --navy-deep: #0D1838;
+    --gold: #F59E0B;
+    --gold-soft: #FCD34D;
+    --white: #FFFFFF;
+    --muted: rgba(255, 255, 255, 0.78);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; background: var(--navy-deep); }
+
+  .banner {
+    position: relative;
+    width: 1080px;
+    height: 1350px;
+    overflow: hidden;
+    padding: 64px 72px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 34px;
+    color: var(--white);
+    font-family: "Inter", sans-serif;
+    background:
+      radial-gradient(900px 600px at 85% -10%, rgba(245, 158, 11, 0.20), transparent 60%),
+      radial-gradient(800px 700px at -10% 110%, rgba(59, 99, 214, 0.45), transparent 60%),
+      linear-gradient(160deg, #2A47A6 0%, #1E3A8A 38%, #132050 72%, #0D1838 100%);
+  }
+  body.status .banner { height: 1920px; padding: 120px 72px 110px; gap: 56px; }
+
+  /* A thin gold rule down the left edge, echoing the app's gold-trimmed header. */
+  .banner::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 12px;
+    background: linear-gradient(var(--gold-soft), var(--gold));
+  }
+
+  /* ── Masthead ─────────────────────────────────────── */
+  .mast { display: flex; align-items: center; gap: 26px; }
+  .logo {
+    width: 116px; height: 116px; flex: none;
+    border-radius: 50%;
+    background: var(--white);
+    display: grid; place-items: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 5px rgba(245, 158, 11, 0.9);
+  }
+  .logo img { width: 92px; height: 92px; object-fit: contain; }
+  .church { font-family: "Outfit"; font-weight: 800; font-size: 34px; letter-spacing: 4px; line-height: 1.15; }
+  .assembly { margin-top: 6px; font-size: 26px; font-weight: 500; color: var(--gold-soft); letter-spacing: 1px; }
+
+  /* ── Headline ─────────────────────────────────────── */
+  .eyebrow {
+    display: inline-block;
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.16);
+    border: 2px solid rgba(245, 158, 11, 0.7);
+    color: var(--gold-soft);
+    font-family: "Outfit"; font-weight: 700; font-size: 26px; letter-spacing: 3px;
+  }
+  h1 {
+    margin-top: 20px;
+    font-family: "Outfit"; font-weight: 800;
+    font-size: 92px; line-height: 0.98; letter-spacing: -1px;
+  }
+  h1 .gold { color: var(--gold); }
+  body.status h1 { font-size: 104px; }
+
+  /* ── Photos ───────────────────────────────────────── */
+  .photos {
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 14px;
+    height: 330px;
+  }
+  body.status .photos { height: 560px; }
+  .photos figure {
+    position: relative;
+    border-radius: 26px;
+    overflow: hidden;
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  }
+  .photos figure:first-child { grid-row: 1 / span 2; }
+  .photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* ── Features ─────────────────────────────────────── */
+  .features { display: grid; gap: 22px; }
+  body.status .features { gap: 34px; }
+  .feature { display: flex; align-items: center; gap: 24px; }
+  .icon {
+    width: 72px; height: 72px; flex: none;
+    border-radius: 22px;
+    background: var(--gold);
+    display: grid; place-items: center;
+  }
+  .icon svg { width: 40px; height: 40px; stroke: var(--navy-deep); fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .feature p { font-size: 33px; font-weight: 600; line-height: 1.2; }
+  .feature p span { display: block; margin-top: 4px; font-size: 25px; font-weight: 500; color: var(--muted); }
+  body.status .feature p { font-size: 36px; }
+
+  /* ── Call to action ───────────────────────────────── */
+  .cta { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .button {
+    display: flex; align-items: center; gap: 18px;
+    padding: 26px 52px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+    color: var(--navy-deep);
+    font-family: "Outfit"; font-weight: 800; font-size: 42px;
+    box-shadow: 0 16px 36px rgba(245, 158, 11, 0.35);
+  }
+  .button svg { width: 44px; height: 44px; stroke: var(--navy-deep); fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .note { font-size: 25px; font-weight: 500; color: var(--muted); text-align: center; }
+
+  /* The chat size is 570px shorter than Status, so it packs a little tighter
+     to keep the button and its note inside the frame. */
+  body:not(.status) .banner { padding: 50px 72px 44px; gap: 22px; }
+  body:not(.status) .logo { width: 100px; height: 100px; }
+  body:not(.status) .logo img { width: 80px; height: 80px; }
+  body:not(.status) h1 { margin-top: 14px; font-size: 84px; }
+  body:not(.status) .photos { height: 280px; }
+  body:not(.status) .features { gap: 14px; }
+  body:not(.status) .icon { width: 64px; height: 64px; border-radius: 20px; }
+  body:not(.status) .icon svg { width: 36px; height: 36px; }
+  body:not(.status) .feature p { font-size: 31px; }
+  body:not(.status) .feature p span { font-size: 23px; }
+  body:not(.status) .cta { gap: 10px; }
+  body:not(.status) .button { padding: 22px 48px; font-size: 38px; }
+  body:not(.status) .note { font-size: 23px; }
+</style>
+</head>
+<body>
+<main class="banner">
+  <header class="mast">
+    <div class="logo"><img src="../../expo-app/assets/Pentecost_Logo.png" alt="The Church of Pentecost logo" /></div>
+    <div>
+      <div class="church">THE CHURCH OF PENTECOST</div>
+      <div class="assembly">Royal Assembly · Ayigya District</div>
+    </div>
+  </header>
+
+  <section>
+    <span class="eyebrow">NEW FOR OUR CHURCH</span>
+    <h1>Our church app<br /><span class="gold">is here!</span></h1>
+  </section>
+
+  <section class="photos" aria-label="Photos from Royal Assembly">
+    <figure><img src="../../expo-app/assets/ministry/youth.jpg" alt="" /></figure>
+    <figure><img src="../../expo-app/assets/ministry/womens.jpg" alt="" /></figure>
+    <figure><img src="../../expo-app/assets/ministry/children.jpg" alt="" /></figure>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+      <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11z"/><path d="M9 10l2 2 4-4"/></svg></div>
+      <p>Sign Sunday attendance at church<span>Right from your phone — no register to queue for</span></p>
+    </div>
+    <div class="feature">
+      <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-2 1-3 1.5-4 .5 1.5 1.5 2 2 2 0-2.5-.5-4.5.5-6.5z"/><path d="M5 21h14"/></svg></div>
+      <p>Your attendance score &amp; Sunday streak<span>See how faithful you have been all year</span></p>
+    </div>
+    <div class="feature">
+      <div class="icon"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M12 7v6M9 10h6"/></svg></div>
+      <p>Events, schedules &amp; the daily verse<span>In English and Twi, straight to your phone</span></p>
+    </div>
+    <div class="feature">
+      <div class="icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg></div>
+      <p>Reach your church leaders<span>Call, SMS or WhatsApp your elders and deacons</span></p>
+    </div>
+  </section>
+
+  <footer class="cta">
+    <div class="button">
+      <svg viewBox="0 0 24 24"><path d="M12 3v13"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/></svg>
+      Download — link below
+    </div>
+    <p class="note">For Android phones · Sign in with your registered phone number</p>
+  </footer>
+</main>
+<script>
+  // ?size=status lays the same banner out for WhatsApp Status (1080x1920).
+  if (new URLSearchParams(location.search).get("size") === "status") document.body.classList.add("status");
+</script>
+</body>
+</html>
