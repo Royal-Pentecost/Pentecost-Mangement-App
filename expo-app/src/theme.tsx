@@ -78,8 +78,15 @@ export const BODY = {
  * One dial for how large the whole interface reads. Every font size, icon, and
  * tile passes through `ms()`, so nudging this rescales the app coherently
  * instead of leaving some screens tighter than others.
+ *
+ * Whatever the scale, `Txt` never renders text below `MIN_TEXT`: at 0.9 the
+ * captions and chips came out at 9–11px, too small for many of the
+ * congregation's older members.
  */
 export const UI_SCALE = 0.9;
+
+/** The smallest text the app draws, in px. Captions and chips round up to it. */
+export const MIN_TEXT = 12;
 
 /** Scale a design number by `UI_SCALE`, kept to half-pixels so text stays crisp. */
 export const ms = (n: number) => Math.round(n * UI_SCALE * 2) / 2;

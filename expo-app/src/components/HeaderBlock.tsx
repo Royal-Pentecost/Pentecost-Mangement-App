@@ -45,19 +45,26 @@ export function HeaderBlock({
   );
 }
 
-/** Translucent circular control used for the back / action buttons in the header. */
+/**
+ * Translucent circular control used for the back / action buttons in the header.
+ * Icon-only, so each one takes a `label` for the phone's screen reader.
+ */
 export function HeaderButton({
   onPress,
   children,
   size = 40,
+  label,
 }: {
   onPress?: () => void;
   children: React.ReactNode;
   size?: number;
+  /** What the button does, read aloud by the screen reader ("Go back"). */
+  label?: string;
 }) {
   return (
     <Btn
       onPress={onPress}
+      accessibilityLabel={label}
       hitSlop={8}
       style={{
         width: ms(size),

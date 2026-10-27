@@ -1,5 +1,38 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, LayoutChangeEvent, StyleProp, TextStyle, View, ViewStyle } from "react-native";
+import { AccessibilityInfo, Animated, Easing, LayoutChangeEvent, StyleProp, TextStyle, View, ViewStyle } from "react-native";
+
+// ─── Reduce motion ────────────────────────────────────────────────────────────
+
+/**
+ * The phone's own "Reduce motion" / "Remove animations" setting, read once and
+ * followed as it changes. Every animation below checks it: entrances land
+ * instantly and the ambient loops (sheen, breathing, flicker, waving) stay
+ * still. Motion can make some people unwell, and the setting is how they say so.
+ */
+let reduceMotion = false;
+const reduceMotionListeners = new Set<(v: boolean) => void>();
+const setReduceMotion = (v: boolean) => {
+  reduceMotion = v;
+  reduceMotionListeners.forEach((l) => l(v));
+};
+try {
+  AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+  AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+} catch {
+  /* Not available on this platform — animations stay on. */
+}
+
+export function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(reduceMotion);
+  useEffect(() => {
+    reduceMotionListeners.add(setReduced);
+    setReduced(reduceMotion);
+    return () => {
+      reduceMotionListeners.delete(setReduced);
+    };
+  }, []);
+  return reduced;
+}
 
 /**
  * Shared motion vocabulary. Everything here drives `transform`/`opacity` so it
@@ -43,8 +76,13 @@ export function FadeIn({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) {
+      t.setValue(1);
+      return;
+    }
     const timer = Animated.timing(t, {
       toValue: 1,
       duration,
@@ -54,7 +92,7 @@ export function FadeIn({
     });
     timer.start();
     return () => timer.stop();
-  }, [t, index, stagger, delay, duration]);
+  }, [t, index, stagger, delay, duration, reduced]);
 
   return (
     <Animated.View
@@ -84,8 +122,13 @@ export function PopIn({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) {
+      t.setValue(1);
+      return;
+    }
     const anim = Animated.timing(t, {
       toValue: 1,
       duration: DUR.slow,
@@ -95,7 +138,7 @@ export function PopIn({
     });
     anim.start();
     return () => anim.stop();
-  }, [t, delay]);
+  }, [t, delay, reduced]);
 
   return (
     <Animated.View
@@ -126,8 +169,11 @@ export function SwapFade({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useRef(new Animated.Value(1)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    // With motion reduced the content simply changes; it stays fully opaque.
+    if (reduced) return;
     // Reset through a zero-length timing rather than `t.setValue(0)`. The value
     // is native-driven, and writing to a native node from JS mid-flight is not
     // honoured reliably — when the write landed but the fade back in did not,
@@ -144,7 +190,7 @@ export function SwapFade({
       anim.stop();
       t.setValue(1);
     };
-  }, [trigger, t]);
+  }, [trigger, t, reduced]);
 
   return (
     <Animated.View
@@ -170,8 +216,13 @@ export function SwapFade({
 export function useCountUp(value: number, duration = 900, delay = 200) {
   const [shown, setShown] = useState(0);
   const raf = useRef<number | null>(null);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) {
+      setShown(value);
+      return;
+    }
     let start: number | null = null;
     let timeout: ReturnType<typeof setTimeout>;
     let settle: ReturnType<typeof setTimeout>;
@@ -197,7 +248,7 @@ export function useCountUp(value: number, duration = 900, delay = 200) {
       clearTimeout(settle);
       if (raf.current !== null) cancelAnimationFrame(raf.current);
     };
-  }, [value, duration, delay]);
+  }, [value, duration, delay, reduced]);
 
   return shown;
 }
@@ -211,17 +262,18 @@ export function useCountUp(value: number, duration = 900, delay = 200) {
 export function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
   const [height, setHeight] = useState(0);
   const anim = useRef(new Animated.Value(open ? 1 : 0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     const a = Animated.timing(anim, {
       toValue: open ? 1 : 0,
-      duration: DUR.base,
+      duration: reduced ? 0 : DUR.base,
       easing: EASE_OUT,
       useNativeDriver: false,
     });
     a.start();
     return () => a.stop();
-  }, [open, anim]);
+  }, [open, anim, reduced]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -261,8 +313,10 @@ export function Breathe({
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(t, { toValue: 1, duration, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
@@ -271,7 +325,7 @@ export function Breathe({
     );
     loop.start();
     return () => loop.stop();
-  }, [t, duration]);
+  }, [t, duration, reduced]);
 
   return (
     <Animated.View style={[style, { transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [min, max] }) }] }]}>
@@ -283,8 +337,10 @@ export function Breathe({
 /** A sweep of light travelling across a surface — used on the primary CTA. */
 export function Sheen({ width, height, radius = 0 }: { width: number; height: number; radius?: number }) {
   const t = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(t, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
@@ -293,7 +349,9 @@ export function Sheen({ width, height, radius = 0 }: { width: number; height: nu
     );
     loop.start();
     return () => loop.stop();
-  }, [t]);
+  }, [t, reduced]);
+
+  if (reduced) return null;
 
   return (
     <Animated.View
@@ -322,8 +380,10 @@ export function Sheen({ width, height, radius = 0 }: { width: number; height: nu
  */
 export function Burst({ size = 120, color = "#22C55E", rings = 3 }: { size?: number; color?: string; rings?: number }) {
   const anims = useMemo(() => Array.from({ length: rings }, () => new Animated.Value(0)), [rings]);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) return;
     const seq = Animated.stagger(
       140,
       anims.map((a) =>
@@ -332,7 +392,9 @@ export function Burst({ size = 120, color = "#22C55E", rings = 3 }: { size?: num
     );
     seq.start();
     return () => seq.stop();
-  }, [anims]);
+  }, [anims, reduced]);
+
+  if (reduced) return null;
 
   return (
     <View pointerEvents="none" style={{ position: "absolute", alignItems: "center", justifyContent: "center", width: size, height: size }}>
@@ -389,8 +451,10 @@ export function WavingHand({
   delay?: number;
 }) {
   const swing = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) return;
     const half = period / 2;
     const out = Animated.timing(swing, {
       toValue: 1,
@@ -419,7 +483,7 @@ export function WavingHand({
 
     anim.start();
     return () => anim.stop();
-  }, [swing, angle, cycles, period, delay]);
+  }, [swing, angle, cycles, period, delay, reduced]);
 
   return (
     <Animated.View
@@ -460,8 +524,13 @@ export function WavingHand({
  */
 export function useTypewriter(text: string, speed = 55, delay = 250) {
   const [count, setCount] = useState(0);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) {
+      setCount(text.length);
+      return;
+    }
     setCount(0);
     if (!text) return;
 
@@ -486,7 +555,7 @@ export function useTypewriter(text: string, speed = 55, delay = 250) {
       clearTimeout(settle);
       clearInterval(timer);
     };
-  }, [text, speed, delay]);
+  }, [text, speed, delay, reduced]);
 
   return { shown: text.slice(0, count), done: count >= text.length };
 }
@@ -499,9 +568,10 @@ export function useTypewriter(text: string, speed = 55, delay = 250) {
  */
 export function Caret({ visible, color = "#fff" }: { visible: boolean; color?: string }) {
   const blink = useRef(new Animated.Value(1)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || reduced) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(blink, { toValue: 0.15, duration: 450, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
@@ -510,7 +580,7 @@ export function Caret({ visible, color = "#fff" }: { visible: boolean; color?: s
     );
     loop.start();
     return () => loop.stop();
-  }, [blink, visible]);
+  }, [blink, visible, reduced]);
 
   if (!visible) return null;
 
@@ -591,8 +661,13 @@ function PoppingChar({
   duration: number;
 }) {
   const v = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) {
+      v.setValue(1);
+      return;
+    }
     const anim = Animated.timing(v, {
       toValue: 1,
       duration,
@@ -602,7 +677,7 @@ function PoppingChar({
     });
     anim.start();
     return () => anim.stop();
-  }, [v, delay, duration]);
+  }, [v, delay, duration, reduced]);
 
   return (
     <Animated.Text
@@ -641,8 +716,10 @@ export function Flicker({
   duration?: number;
 }) {
   const v = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
+    if (reduced) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(v, { toValue: 1, duration, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
@@ -651,7 +728,7 @@ export function Flicker({
     );
     loop.start();
     return () => loop.stop();
-  }, [v, duration]);
+  }, [v, duration, reduced]);
 
   return (
     <Animated.View

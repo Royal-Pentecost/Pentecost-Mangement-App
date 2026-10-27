@@ -16,7 +16,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { BODY, BRAND, FONT, RADIUS, TINTS, TintName, ms, useTheme } from "./theme";
+import { BODY, BRAND, FONT, MIN_TEXT, RADIUS, TINTS, TintName, ms, useTheme } from "./theme";
 
 // ─── Text ─────────────────────────────────────────────────────────────────────
 
@@ -48,17 +48,25 @@ export function Txt({
 }: TextProps & { variant?: TxtVariant }) {
   // Screens state sizes at their design values; the global scale is applied
   // here so the whole app resizes together rather than screen by screen.
+  // Nothing renders below MIN_TEXT, and a line height set for the smaller
+  // design size grows with it so raised text never clips.
   const flat = StyleSheet.flatten(style) as TextStyle | undefined;
+  const fontSize = flat?.fontSize != null ? Math.max(ms(flat.fontSize), MIN_TEXT) : undefined;
+  const lineHeight =
+    flat?.lineHeight != null ? Math.max(ms(flat.lineHeight), fontSize != null ? Math.ceil(fontSize * 1.25) : 0) : undefined;
   const scaled: TextStyle | undefined =
-    flat && (flat.fontSize != null || flat.lineHeight != null)
+    flat && (fontSize != null || lineHeight != null)
       ? {
           ...flat,
-          ...(flat.fontSize != null ? { fontSize: ms(flat.fontSize) } : null),
-          ...(flat.lineHeight != null ? { lineHeight: ms(flat.lineHeight) } : null),
+          ...(fontSize != null ? { fontSize } : null),
+          ...(lineHeight != null ? { lineHeight } : null),
         }
       : flat;
 
-  return <Text {...rest} style={[{ fontFamily: FAMILY[variant] }, scaled]} />;
+  // The phone's own text-size setting still applies — that is how many older
+  // members make every app readable — capped so the largest setting enlarges
+  // text without breaking the layout around it.
+  return <Text maxFontSizeMultiplier={1.4} {...rest} style={[{ fontFamily: FAMILY[variant] }, scaled]} />;
 }
 
 // ─── Pressable with the web build's active:scale-95 feel ──────────────────────
@@ -119,6 +127,8 @@ export function Btn({
   const flat = (StyleSheet.flatten(style) ?? {}) as ViewStyle;
   return (
     <Pressable
+      // Announced as a button by the phone's screen reader unless told otherwise.
+      accessibilityRole="button"
       {...rest}
       onPress={handlePress}
       disabled={disabled || busy}

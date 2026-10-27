@@ -228,7 +228,7 @@ export default function DashboardShell(props: {
                 <Image source={pentecostLogo} style={{ width: 32, height: 32 }} resizeMode="contain" />
               </View>
             ) : (
-              <HeaderButton onPress={props.onBack}>
+              <HeaderButton onPress={props.onBack} label="Go back">
                 <ArrowLeftIcon color="#fff" />
               </HeaderButton>
             )}
@@ -241,11 +241,11 @@ export default function DashboardShell(props: {
 
           <HeaderTitle eyebrow={eyebrow} title={title.toUpperCase()} />
 
-          <HeaderButton onPress={toggle} size={36}>
+          <HeaderButton onPress={toggle} label={mode === "light" ? "Switch to dark mode" : "Switch to light mode"}>
             {mode === "light" ? <MoonIcon color="#fff" /> : <SunIcon color="#fff" />}
           </HeaderButton>
 
-          <HeaderButton size={36} onPress={props.onOpenNotifications}>
+          <HeaderButton onPress={props.onOpenNotifications} label="Notifications">
             <BellIcon color="#fff" />
             <View style={{ position: "absolute", top: 7, right: 7, width: 8, height: 8, borderRadius: 4, backgroundColor: "#F87171" }} />
           </HeaderButton>
