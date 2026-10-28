@@ -3,7 +3,7 @@ import * as Api from "../api/resources";
 import { ScrollView, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { BRAND, RADIUS, useTheme } from "../theme";
+import { BRAND, ICON_TILE, RADIUS, useTheme } from "../theme";
 import { Elder, Member, classForDayBorn, presence } from "../data";
 import { BookIcon, CameraIcon, ChatIcon, CheckIcon, CircleIcon, FlameIcon, HandshakeIcon, MapPinIcon, MusicIcon, PhoneIcon, PrayIcon, ShieldIcon, UsersIcon, WhatsappIcon } from "../icons";
 import { contactLinks, openContact } from "../contact";
@@ -34,6 +34,8 @@ export default function MemberProfile({
   // Pull down anywhere on this page to reload everything the app shows.
   const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
+  // Icon boxes share the app-wide tile colour.
+  const tile = isDark ? ICON_TILE.dark : ICON_TILE.light;
   const [activeTab, setActiveTab] = useState<ProfileTab>("attendance");
 
   const tabs = TABS;
@@ -284,8 +286,8 @@ export default function MemberProfile({
               { key: "marital", Icon: UsersIcon, label: "Marital status", value: member.maritalStatus || "Not recorded" },
             ].map(({ key, Icon, label, value }) => (
               <View key={key} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.muted }}>
-                <View style={{ width: 32, height: 32, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: isDark ? "#1E3A8A33" : "#EFF6FF" }}>
-                  <Icon size={15} color={isDark ? BRAND.blueLight : BRAND.navy} />
+                <View style={{ width: 32, height: 32, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: tile.bg }}>
+                  <Icon size={15} color={tile.fg} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Txt style={{ fontSize: 11.5, color: c.mutedForeground }}>{label}</Txt>
@@ -307,8 +309,8 @@ export default function MemberProfile({
             <View style={{ gap: 10 }}>
               {member.departments.map((dept, i) => (
                 <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.muted }}>
-                  <View style={{ width: 32, height: 32, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: isDark ? "#1E3A8A33" : "#EFF6FF" }}>
-                    <Txt style={{ fontSize: 14 }}>{React.createElement(DEPT_ICONS[i % DEPT_ICONS.length], { size: 15, color: isDark ? BRAND.blueLight : BRAND.navy })}</Txt>
+                  <View style={{ width: 32, height: 32, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: tile.bg }}>
+                    <Txt style={{ fontSize: 14 }}>{React.createElement(DEPT_ICONS[i % DEPT_ICONS.length], { size: 15, color: tile.fg })}</Txt>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Txt variant="bodySemi" style={{ fontSize: 14, color: c.foreground }}>

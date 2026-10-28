@@ -4,7 +4,7 @@ import { Modal, Pressable, ScrollView, TextInput, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 
-import { BODY, BRAND, RADIUS, useTheme } from "../theme";
+import { BODY, BRAND, ICON_TILE, RADIUS, useTheme } from "../theme";
 import {
   LoginRole,
   Member,
@@ -651,8 +651,9 @@ export default function AdminHub({
           <PopIn key={i} delay={i * 80} style={{ width: "47%", flexGrow: 1 }}>
           <Card style={{ padding: 14 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: stat.bg }}>
-                <stat.Icon size={18} color={stat.color} />
+              {/* Same tile as every icon in the app; the figure beside it carries the colour. */}
+              <View style={{ width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: isDark ? ICON_TILE.dark.bg : ICON_TILE.light.bg }}>
+                <stat.Icon size={18} color={isDark ? ICON_TILE.dark.fg : ICON_TILE.light.fg} />
               </View>
               {stat.label === "Incomplete Profiles" ? (
                 <Pulse>

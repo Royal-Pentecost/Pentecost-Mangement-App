@@ -36,8 +36,14 @@ admin's `phone` in `adminUsers` **must** stay in sync with their key in `PHONE_R
 
 - **No Tailwind.** Style with plain style objects. Colours come from `useTheme().c`, never hardcoded
   palette values; fixed brand colours live in `BRAND` in `src/theme.tsx`.
-- **Cards carry no border in light mode** — `Card` uses a soft shadow there and a hairline border only in
-  dark mode. Don't hand-roll `backgroundColor: c.card` surfaces; use `Card`, `RowCard`, or `TintTile`.
+- **Cards carry no border in either theme.** In light mode `Card` floats on a soft shadow; in dark mode the
+  card surface being lighter than the page is the separation. Outlined cards were much of why the app
+  looked machine-made, so `Card` ignores `borderColor`. Don't hand-roll `backgroundColor: c.card` surfaces;
+  use `Card`, `RowCard`, or `TintTile`.
+- **One icon-tile colour.** Every icon tile, and the selected tab in the bottom bar, is `ICON_TILE`: church
+  navy with a white icon in light mode, deep navy with a white icon in dark mode. `TintTile`'s `tint` names
+  remain but all draw the same colour. Colour that means something stays on status pills and banners
+  (Present, Late, the attendance-marked tick), never on decorative icon tiles.
 - Screen content is padded `SCREEN_PAD` (16) horizontally, and section labels come from `SectionHeading`.
 - **One dial controls how large the app reads**: `UI_SCALE` in `src/theme.tsx`, applied through `ms()`.
   `Txt` scales every `fontSize`/`lineHeight` it is given, and `TintTile`, `Avatar`, and every icon scale

@@ -104,16 +104,29 @@ export const RADIUS = {
 /** Horizontal gutter for screen content. */
 export const SCREEN_PAD = 16;
 
-/** Soft tinted surfaces used behind icons and day badges. */
+/**
+ * The one look for every icon tile and for the selected tab: a solid tile with a
+ * white icon. Church navy in light mode; in dark mode a deep navy that still
+ * stands off the card behind it. It replaced six pastel tints (violet, green,
+ * amber…) that made each screen look like a colour swatch rather than one app.
+ */
+export const ICON_TILE = {
+  light: { bg: "#1E3A8A", fg: "#FFFFFF" },
+  dark: { bg: "#24325A", fg: "#FFFFFF" },
+} as const;
+
+/** Kept as names so call sites read the same; every tint now draws `ICON_TILE`. */
 export type TintName = "indigo" | "blue" | "green" | "amber" | "red" | "violet";
 
+const ONE_TILE = { light: ICON_TILE.light.bg, dark: ICON_TILE.dark.bg, fg: ICON_TILE.light.fg, fgDark: ICON_TILE.dark.fg };
+
 export const TINTS: Record<TintName, { light: string; dark: string; fg: string; fgDark: string }> = {
-  indigo: { light: "#EEF0FF", dark: "#312E8122", fg: "#4338CA", fgDark: "#A5B4FC" },
-  violet: { light: "#F3EEFF", dark: "#7C3AED22", fg: "#7C3AED", fgDark: "#C4B5FD" },
-  blue: { light: "#EAF1FF", dark: "#1E3A8A33", fg: "#1E3A8A", fgDark: "#93C5FD" },
-  green: { light: "#E7F8EF", dark: "#16A34A22", fg: "#15803D", fgDark: "#6EE7B7" },
-  amber: { light: "#FEF4E4", dark: "#D9770622", fg: "#B45309", fgDark: "#FCD34D" },
-  red: { light: "#FEECEC", dark: "#DC262622", fg: "#DC2626", fgDark: "#FCA5A5" },
+  indigo: ONE_TILE,
+  violet: ONE_TILE,
+  blue: ONE_TILE,
+  green: ONE_TILE,
+  amber: ONE_TILE,
+  red: ONE_TILE,
 };
 
 /** Fixed brand colours that do not come from the palette. */

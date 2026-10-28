@@ -151,14 +151,14 @@ export function Btn({
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
 /**
- * In light mode cards read as floating white surfaces with a soft shadow and no
- * hard outline; in dark mode shadows don't register, so a hairline border does
- * the separating instead.
+ * Cards carry no outline in either theme. In light mode they float on a soft
+ * shadow; in dark mode the card surface is lighter than the page, which is
+ * separation enough. Outlines on every card were a large part of why the app
+ * looked machine-made. `borderColor` is accepted for old call sites and ignored.
  */
 export function Card({
   style,
   children,
-  borderColor,
   elevation = "sm",
 }: {
   style?: StyleProp<ViewStyle>;
@@ -167,7 +167,6 @@ export function Card({
   elevation?: "none" | "sm" | "md";
 }) {
   const { c, isDark } = useTheme();
-  const outlined = isDark || !!borderColor;
 
   return (
     <View
@@ -175,8 +174,6 @@ export function Card({
         {
           backgroundColor: c.card,
           borderRadius: RADIUS.lg,
-          borderWidth: outlined ? 1 : 0,
-          borderColor: borderColor ?? c.border,
         },
         !isDark && elevation !== "none" ? shadow(elevation) : null,
         style,
@@ -189,7 +186,7 @@ export function Card({
 
 // ─── Tinted icon tile ─────────────────────────────────────────────────────────
 
-/** Soft rounded square that sits behind an icon or emoji. */
+/** Rounded square behind an icon — one colour app-wide (`ICON_TILE`), whatever `tint` is passed. */
 export function TintTile({
   tint,
   size = 44,

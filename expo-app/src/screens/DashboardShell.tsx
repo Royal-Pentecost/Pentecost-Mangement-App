@@ -2,7 +2,7 @@ import React from "react";
 import { Animated, Image, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BRAND, RADIUS, useTheme, ms } from "../theme";
+import { BRAND, ICON_TILE, RADIUS, useTheme, ms } from "../theme";
 import {
   Assembly,
   AttendanceScenario,
@@ -88,7 +88,10 @@ function TabIcon({ active, children }: { active: boolean; children: React.ReactN
   );
 }
 
-/** Soft tinted halo that fades in behind the selected tab. */
+/**
+ * The solid tile behind the selected tab's icon — the same `ICON_TILE` colour as
+ * every icon tile in the app, with the icon in white on top of it.
+ */
 function TabGlow({ active, color }: { active: boolean; color: string }) {
   const t = React.useRef(new Animated.Value(active ? 1 : 0)).current;
 
@@ -103,12 +106,12 @@ function TabGlow({ active, color }: { active: boolean; color: string }) {
       pointerEvents="none"
       style={{
         position: "absolute",
-        top: -4,
-        width: 46,
-        height: 30,
-        borderRadius: 15,
+        top: -6,
+        width: 50,
+        height: 34,
+        borderRadius: 12,
         backgroundColor: color,
-        opacity: t.interpolate({ inputRange: [0, 1], outputRange: [0, 0.12] }),
+        opacity: t,
         transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
       }}
     />
@@ -415,9 +418,9 @@ export default function DashboardShell(props: {
                 style={{ flex: 1, alignItems: "center", gap: 4, paddingVertical: 2, minHeight: 44 }}
               >
                 {/* Active pill grows behind the icon as the tab is selected. */}
-                <TabGlow active={active} color={c.primary} />
+                <TabGlow active={active} color={isDark ? ICON_TILE.dark.bg : ICON_TILE.light.bg} />
                 <TabIcon active={active}>
-                  <Icon active={active} size={21} color={active ? c.primary : c.mutedForeground} />
+                  <Icon active={active} size={21} color={active ? (isDark ? ICON_TILE.dark.fg : ICON_TILE.light.fg) : c.mutedForeground} />
                   {id === "attendance" && !active ? (
                     <View
                       style={{

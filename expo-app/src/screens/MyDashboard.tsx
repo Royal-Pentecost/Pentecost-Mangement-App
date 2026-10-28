@@ -1169,7 +1169,7 @@ export default function MyDashboard({
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 13 }}>
               <TintTile tint={released ? "amber" : "blue"} size={44}>
-                <Txt variant="displayExtraBold" style={{ fontSize: 16, color: released ? tintFg("amber", isDark) : c.mutedForeground }}>
+                <Txt variant="displayExtraBold" style={{ fontSize: 16, color: tintFg("blue", isDark), opacity: released ? 1 : 0.6 }}>
                   {study.weekNumber}
                 </Txt>
               </TintTile>
