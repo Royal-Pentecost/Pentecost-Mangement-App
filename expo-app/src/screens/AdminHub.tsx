@@ -173,6 +173,47 @@ function MiniSave({ label, onPress, color, disabled }: { label: string; onPress:
   );
 }
 
+/**
+ * "14/09/1998" → "1998-09-14", the form the server stores. Blank stays blank
+ * ("not known"); anything that is not a real past date comes back null so the
+ * form can say so instead of sending something the server rejects.
+ */
+function toIsoDate(typed: string): string | null {
+  const t = typed.trim();
+  if (!t) return "";
+  const m = t.match(/^(\d{1,2})[/\-. ](\d{1,2})[/\-. ](\d{4})$/);
+  if (!m) return null;
+  const [day, month, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day || year < 1900 || date.getTime() > Date.now()) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** "1998-09-14" → "14/09/1998", how Ghana writes a date. */
+function fromIsoDate(iso?: string | null): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return d && m && y ? `${d}/${m}/${y}` : "";
+}
+
+/**
+ * "Royal Youth Choir, Church Secretary" → a list. The Evangelism Ministry is
+ * left out because every member is in it — the server adds it to every record.
+ */
+function parseRoles(text: string): string[] {
+  return text
+    .split(",")
+    .map((r) => r.trim())
+    .filter((r) => r && r.toLowerCase() !== "evangelism ministry");
+}
+
+const MARITAL_OPTIONS: { id: Api.MaritalStatus; label: string }[] = [
+  { id: "single", label: "Single" },
+  { id: "married", label: "Married" },
+  { id: "widowed", label: "Widowed" },
+  { id: "divorced", label: "Divorced" },
+];
+
 function MiniForm({ title, children }: { title: string; children: React.ReactNode }) {
   const { c } = useTheme();
   return (
@@ -220,6 +261,11 @@ export default function AdminHub({
   const [correctionMiddleName, setCorrectionMiddleName] = useState("");
   const [correctionLastName, setCorrectionLastName] = useState("");
   const [correctionPhone, setCorrectionPhone] = useState("");
+  const [correctionSex, setCorrectionSex] = useState<"M" | "F" | "">("");
+  const [correctionDob, setCorrectionDob] = useState("");
+  const [correctionResidence, setCorrectionResidence] = useState("");
+  const [correctionMarital, setCorrectionMarital] = useState<Api.MaritalStatus | "">("");
+  const [correctionRoles, setCorrectionRoles] = useState("");
 
   const splitMemberName = (name: string) => {
     const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -374,6 +420,11 @@ export default function AdminHub({
     setCorrectionMiddleName(member.middleName ?? names.middle);
     setCorrectionLastName(member.lastName ?? names.last);
     setCorrectionPhone(fromStoredNumber(member.phone));
+    setCorrectionSex(member.sex === "M" || member.sex === "F" ? member.sex : "");
+    setCorrectionDob(fromIsoDate(member.dateOfBirth));
+    setCorrectionResidence(member.residence ?? "");
+    setCorrectionMarital((member.maritalStatus?.toLowerCase() as Api.MaritalStatus) || "");
+    setCorrectionRoles(parseRoles((member.departments ?? []).join(", ")).join(", "));
   };
 
   const [savingCorrection, setSavingCorrection] = useState(false);
@@ -396,6 +447,11 @@ export default function AdminHub({
       .map((part) => part.trim())
       .filter(Boolean)
       .join(" ");
+    const dob = toIsoDate(correctionDob);
+    if (dob === null) {
+      setStatus({ ok: false, message: "Date of birth must be a real date written DD/MM/YYYY, e.g. 14/09/1998." });
+      return;
+    }
 
     setSavingCorrection(true);
     try {
@@ -404,6 +460,11 @@ export default function AdminHub({
         // Sent even when blank: an empty box means "remove the login", which is
         // how an admin undoes a number typed against the wrong person.
         phone_number: toLocalNumber(correctionPhone),
+        sex: correctionSex,
+        date_of_birth: dob,
+        residence: correctionResidence.trim(),
+        marital_status: correctionMarital,
+        church_roles: parseRoles(correctionRoles),
       });
       await refreshDirectory();
 
@@ -434,6 +495,10 @@ export default function AdminHub({
   const [mPhone, setMPhone] = useState("");
   const [mId, setMId] = useState("");
   const [mSex, setMSex] = useState<"M" | "F" | "">("");
+  const [mDob, setMDob] = useState("");
+  const [mResidence, setMResidence] = useState("");
+  const [mMarital, setMMarital] = useState<Api.MaritalStatus | "">("");
+  const [mRoles, setMRoles] = useState("");
   const [addingMember, setAddingMember] = useState(false);
 
   // The member ID is no longer required — the server allocates the next free
@@ -443,6 +508,11 @@ export default function AdminHub({
 
   const submitMember = async () => {
     const fullName = [mFirstName, mMiddleName, mLastName].map((part) => part.trim()).filter(Boolean).join(" ");
+    const dob = toIsoDate(mDob);
+    if (dob === null) {
+      setStatus({ ok: false, message: "Date of birth must be a real date written DD/MM/YYYY, e.g. 14/09/1998." });
+      return;
+    }
 
     // Added on the server, so the member exists for every device — adding them
     // only in local state would lose them on the next launch.
@@ -453,6 +523,11 @@ export default function AdminHub({
         full_name: fullName,
         phone_number: toLocalNumber(mPhone) || undefined,
         sex: mSex,
+        // The server places them in their day-born group from this date.
+        date_of_birth: dob,
+        residence: mResidence.trim(),
+        marital_status: mMarital,
+        church_roles: parseRoles(mRoles),
       });
       await refreshDirectory();
       setStatus({
@@ -476,6 +551,10 @@ export default function AdminHub({
     setMLastName("");
     setMPhone("");
     setMSex("");
+    setMDob("");
+    setMResidence("");
+    setMMarital("");
+    setMRoles("");
     setMId("");
   };
 
@@ -922,6 +1001,24 @@ export default function AdminHub({
                   <MiniField placeholder="Middle name" value={correctionMiddleName} onChangeText={setCorrectionMiddleName} />
                   <MiniField placeholder="Last name" value={correctionLastName} onChangeText={setCorrectionLastName} />
                   <MiniField placeholder="Phone number (blank removes their login)" value={correctionPhone} onChangeText={(t) => setCorrectionPhone(ghanaDigits(t))} keyboardType="phone-pad" prefix={GH_PREFIX} />
+                  <MiniChoice
+                    label="Sex"
+                    options={[{ id: "M" as const, label: "Male" }, { id: "F" as const, label: "Female" }]}
+                    value={correctionSex}
+                    onChange={(v) => setCorrectionSex(correctionSex === v ? "" : v)}
+                  />
+                  <MiniField placeholder="Date of birth — DD/MM/YYYY" value={correctionDob} onChangeText={setCorrectionDob} />
+                  <MiniField placeholder="Residence (e.g. Ayigya Zongo)" value={correctionResidence} onChangeText={setCorrectionResidence} />
+                  <MiniChoice
+                    label="Marital status"
+                    options={MARITAL_OPTIONS}
+                    value={correctionMarital}
+                    onChange={(v) => setCorrectionMarital(correctionMarital === v ? "" : v)}
+                  />
+                  <MiniField placeholder="Ministries & roles, separated by commas" value={correctionRoles} onChangeText={setCorrectionRoles} />
+                  <Txt style={{ fontSize: 11, marginBottom: 8, color: c.mutedForeground }}>
+                    Evangelism Ministry is on every member's record automatically.
+                  </Txt>
                   <MiniSave
                     label={savingCorrection ? "Saving…" : "Save correction"}
                     onPress={saveCorrection}
@@ -1034,6 +1131,22 @@ export default function AdminHub({
                         value={mSex}
                         onChange={(v) => setMSex(mSex === v ? "" : v)}
                       />
+
+                      {/* The register's details. All optional, so a visitor can
+                          be added with just a name and completed later through
+                          "Correct a member record". */}
+                      <MiniField placeholder="Date of birth — DD/MM/YYYY (sets their day-born group)" value={mDob} onChangeText={setMDob} />
+                      <MiniField placeholder="Residence (e.g. Ayigya Zongo)" value={mResidence} onChangeText={setMResidence} />
+                      <MiniChoice
+                        label="Marital status (optional)"
+                        options={MARITAL_OPTIONS}
+                        value={mMarital}
+                        onChange={(v) => setMMarital(mMarital === v ? "" : v)}
+                      />
+                      <MiniField placeholder="Ministries & roles, separated by commas (e.g. Royal Youth Choir)" value={mRoles} onChangeText={setMRoles} />
+                      <Txt style={{ fontSize: 11, marginBottom: 8, color: c.mutedForeground }}>
+                        Evangelism Ministry is added for every member automatically.
+                      </Txt>
 
                       <MiniField placeholder="Member ID (optional — allocated for you)" value={mId} onChangeText={setMId} inputRef={memberIdRef} />
                       <MiniSave

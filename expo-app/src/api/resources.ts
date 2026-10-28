@@ -1,4 +1,7 @@
 import { listAll, request, uploadImage } from "./client";
+
+/** As the server stores it; the register's "Status" column. */
+export type MaritalStatus = "single" | "married" | "widowed" | "divorced";
 import {
   ApiActivityLog,
   ApiAssembly,
@@ -33,6 +36,27 @@ export const fetchMember = (id: string) =>
   request<ApiMember>(`/api/v1/accounts/members/${encodeURIComponent(id)}/`);
 
 export const fetchElders = () => listAll<ApiElder>("/api/v1/accounts/elders/");
+
+/**
+ * Gives a member a church leadership title ("Elder", "Deacon", "Deaconess",
+ * "Presiding Elder"). Super admin only — the server refuses anyone else.
+ */
+export const assignLeadershipTitle = (memberId: string, title: string) =>
+  request<ApiElder>("/api/v1/accounts/elders/", {
+    method: "POST",
+    body: { member_id: memberId, title, office: title === "Presiding Elder" ? "presiding" : "other" },
+  });
+
+/** Changes the title a leader already holds. */
+export const changeLeadershipTitle = (elderId: string, title: string) =>
+  request<ApiElder>(`/api/v1/accounts/elders/${encodeURIComponent(elderId)}/`, {
+    method: "PATCH",
+    body: { title, office: title === "Presiding Elder" ? "presiding" : "other" },
+  });
+
+/** Takes a leadership title away. The person stays on the roll as a member. */
+export const removeLeadershipTitle = (elderId: string) =>
+  request<void>(`/api/v1/accounts/elders/${encodeURIComponent(elderId)}/`, { method: "DELETE" });
 export const fetchDayBornGroups = () => listAll<ApiDayBornGroup>("/api/v1/accounts/day-born-groups/");
 export const fetchAssemblies = () => listAll("/api/v1/accounts/assemblies/");
 
@@ -56,6 +80,9 @@ export const createMemberRecord = (body: {
   phone_number?: string;
   sex?: "M" | "F" | "";
   date_of_birth?: string;
+  residence?: string;
+  marital_status?: MaritalStatus | "";
+  church_roles?: string[];
   role?: "member" | "assembly_admin" | "super_admin";
 }) =>
   request<ApiMember>("/api/v1/accounts/members/", {
@@ -81,6 +108,9 @@ export const updateMemberRecord = (
     phone_number?: string;
     sex?: "M" | "F" | "";
     date_of_birth?: string;
+    residence?: string;
+    marital_status?: MaritalStatus | "";
+    church_roles?: string[];
     day_born_group_id?: string | null;
     assigned_elder_id?: string | null;
   },

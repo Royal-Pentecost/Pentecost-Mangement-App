@@ -26,6 +26,10 @@ import { Avatar, Btn, Card, Txt } from "../ui";
 import { usePullToRefresh } from "../refresh";
 import { describeError } from "../session";
 
+/** The offices the church gives. "Presiding Elder" is stored as the presiding office. */
+const LEADERSHIP_TITLES = ["Presiding Elder", "Elder", "Deacon", "Deaconess"] as const;
+type LeadershipTitle = (typeof LEADERSHIP_TITLES)[number];
+
 const BOUNDARIES = ["Royal Assembly", "SMT", "Upper Room", "Grace Temple", "Ayigya District", "Ayigya North"];
 
 export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) {
@@ -67,7 +71,49 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [removeStatus, setRemoveStatus] = useState<string | null>(null);
   const { directory: seedDirectory, removeMember } = useContent();
-  const { members: roll, refresh: refreshRoll } = useDirectory();
+  const { members: roll, elders: leaders, refresh: refreshRoll } = useDirectory();
+
+  // ── Church leadership titles ─────────────────────────────────────────────
+  // A title is held by a member; giving one creates their leader record on the
+  // server, changing it edits that record, removing it deletes the record and
+  // leaves them on the roll as an ordinary member. Super admin only.
+  const [titleSearch, setTitleSearch] = useState("");
+  const [titleMember, setTitleMember] = useState<Member | null>(null);
+  const [titleChoice, setTitleChoice] = useState<LeadershipTitle>("Elder");
+  const [titleStatus, setTitleStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  /** The leader whose Remove was tapped once; a second tap confirms. */
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+
+  const leaderFor = (memberId: string) => leaders.find((l) => l.memberRef === memberId);
+
+  const assignTitle = async () => {
+    if (!titleMember) return;
+    const existing = leaderFor(titleMember.id);
+    setTitleStatus(null);
+    try {
+      if (existing) await Api.changeLeadershipTitle(existing.id, titleChoice);
+      else await Api.assignLeadershipTitle(titleMember.id, titleChoice);
+      await refreshRoll();
+      setTitleStatus({ ok: true, message: `${titleMember.name} is now ${titleChoice}.` });
+      setTitleMember(null);
+      setTitleSearch("");
+    } catch (e) {
+      setTitleStatus({ ok: false, message: describeError(e) });
+    }
+  };
+
+  const removeTitle = async (leaderId: string, name: string, title: string) => {
+    setTitleStatus(null);
+    try {
+      await Api.removeLeadershipTitle(leaderId);
+      await refreshRoll();
+      setTitleStatus({ ok: true, message: `${name} no longer holds the title ${title}.` });
+    } catch (e) {
+      setTitleStatus({ ok: false, message: describeError(e) });
+    } finally {
+      setConfirmRemoveId(null);
+    }
+  };
 
   /**
    * The real trail, written by the server as actions happen. The seeded list is
@@ -357,6 +403,128 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
                 ))}
               </View>
             ) : null}
+          </Card>
+        </View>
+
+        {/* Church leadership titles */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+          <Card style={{ padding: 14 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <ChurchIcon size={20} color={c.primary} />
+              <View style={{ flex: 1 }}>
+                <Txt variant="displayBold" style={{ fontSize: 15, color: c.foreground }}>Church leadership titles</Txt>
+                <Txt style={{ fontSize: 12, lineHeight: 17, marginTop: 3, color: c.mutedForeground }}>
+                  Give a member a title, change it, or take it away. They appear under Church Leaders at once.
+                </Txt>
+              </View>
+            </View>
+
+            {titleStatus ? (
+              <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, marginTop: 10, color: titleStatus.ok ? (isDark ? BRAND.greenLight : BRAND.greenDark) : isDark ? "#FCA5A5" : "#B91C1C" }}>
+                {titleStatus.message}
+              </Txt>
+            ) : null}
+
+            {/* Assign */}
+            {titleMember ? (
+              <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: c.muted }}>
+                <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>{titleMember.name}</Txt>
+                <Txt style={{ fontSize: 11.5, marginTop: 2, color: c.mutedForeground }}>
+                  {leaderFor(titleMember.id) ? `Currently ${leaderFor(titleMember.id)?.title}` : "No title yet"}
+                </Txt>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                  {LEADERSHIP_TITLES.map((t) => {
+                    const on = t === titleChoice;
+                    return (
+                      <Btn
+                        key={t}
+                        onPress={() => setTitleChoice(t)}
+                        accessibilityState={{ selected: on }}
+                        style={{ paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, backgroundColor: on ? BRAND.navy : c.card }}
+                      >
+                        <Txt variant="bodySemi" style={{ fontSize: 12.5, color: on ? "#fff" : c.foreground }}>{t}</Txt>
+                      </Btn>
+                    );
+                  })}
+                </View>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+                  <Btn onPress={() => setTitleMember(null)} style={{ flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: "center", backgroundColor: c.card }}>
+                    <Txt variant="displayBold" style={{ fontSize: 13, color: c.foreground }}>Cancel</Txt>
+                  </Btn>
+                  <Btn onPress={assignTitle} style={{ flex: 1.4, paddingVertical: 11, borderRadius: 12, alignItems: "center", backgroundColor: BRAND.navy }}>
+                    <Txt variant="displayBold" style={{ fontSize: 13, color: "#fff" }}>Make {titleChoice}</Txt>
+                  </Btn>
+                </View>
+              </View>
+            ) : (
+              <>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, paddingHorizontal: 11, paddingVertical: 10, borderRadius: 10, backgroundColor: c.muted }}>
+                  <SearchIcon color={c.mutedForeground} />
+                  <TextInput
+                    value={titleSearch}
+                    onChangeText={setTitleSearch}
+                    placeholder="Find a member to give a title"
+                    placeholderTextColor={c.mutedForeground}
+                    style={{ flex: 1, padding: 0, color: c.foreground, fontFamily: BODY.regular, fontSize: 13 }}
+                  />
+                </View>
+                {titleSearch.trim() ? (
+                  <View style={{ marginTop: 8, gap: 6 }}>
+                    {directory
+                      .filter((m) => {
+                        const q = titleSearch.trim().toLowerCase();
+                        return m.name.toLowerCase().includes(q) || m.memberId.toLowerCase().includes(q);
+                      })
+                      .slice(0, 6)
+                      .map((m) => (
+                        <Btn
+                          key={m.id}
+                          onPress={() => {
+                            const current = leaderFor(m.id)?.title;
+                            setTitleChoice((LEADERSHIP_TITLES as readonly string[]).includes(current ?? "") ? (current as LeadershipTitle) : "Elder");
+                            setTitleStatus(null);
+                            setTitleMember(m);
+                          }}
+                          style={{ padding: 10, borderRadius: 10, backgroundColor: c.muted }}
+                        >
+                          <Txt variant="displayBold" style={{ fontSize: 13, color: c.foreground }}>{m.name}</Txt>
+                          <Txt style={{ fontSize: 11, marginTop: 2, color: c.mutedForeground }}>
+                            {m.memberId}{leaderFor(m.id) ? ` · ${leaderFor(m.id)?.title}` : ""}
+                          </Txt>
+                        </Btn>
+                      ))}
+                  </View>
+                ) : null}
+              </>
+            )}
+
+            {/* Current office holders */}
+            <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", marginTop: 16, marginBottom: 8, color: c.mutedForeground }}>
+              Current leaders · {leaders.length}
+            </Txt>
+            <View style={{ gap: 6 }}>
+              {leaders.map((l) => {
+                const confirming = confirmRemoveId === l.id;
+                return (
+                  <View key={l.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, backgroundColor: c.muted }}>
+                    <View style={{ flex: 1 }}>
+                      <Txt variant="bodySemi" style={{ fontSize: 13, color: c.foreground }}>{l.name}</Txt>
+                      <Txt style={{ fontSize: 11.5, marginTop: 1, color: c.mutedForeground }}>{l.title}</Txt>
+                    </View>
+                    {/* First tap asks, second tap removes — no accidental demotions. */}
+                    <Btn
+                      onPress={() => (confirming ? removeTitle(l.id, l.name, l.title) : setConfirmRemoveId(l.id))}
+                      accessibilityLabel={confirming ? `Confirm removing ${l.name}'s title` : `Remove ${l.name}'s title`}
+                      style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: confirming ? BRAND.red : c.card }}
+                    >
+                      <Txt variant="bodySemi" style={{ fontSize: 12, color: confirming ? "#fff" : BRAND.red }}>
+                        {confirming ? "Tap to confirm" : "Remove title"}
+                      </Txt>
+                    </Btn>
+                  </View>
+                );
+              })}
+            </View>
           </Card>
         </View>
 
