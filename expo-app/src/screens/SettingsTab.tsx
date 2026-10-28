@@ -6,7 +6,7 @@ import { BRAND, RADIUS, TintName, useTheme, ms } from "../theme";
 import { LANGUAGES, SessionUser, SettingsTopic } from "../data";
 import { useContent } from "../store";
 import { BellIcon, BookIcon, CameraIcon, ChatIcon, ChevronRightIcon, FileTextIcon, InfoIcon, LockIcon, LogOutIcon, MoonIcon, SunIcon, UserIcon } from "../icons";
-import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
+import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg, tintText } from "../ui";
 import { FadeIn } from "../motion";
 import { usePullToRefresh } from "../refresh";
 import { ViewableAvatar } from "../components/PhotoViewer";
@@ -169,7 +169,7 @@ export default function SettingsTab({
               lineHeight: 17,
               marginTop: 10,
               textAlign: "center",
-              color: photoStatus.state === "failed" ? (isDark ? "#FCA5A5" : "#B91C1C") : tintFg("green", isDark),
+              color: photoStatus.state === "failed" ? (isDark ? "#FCA5A5" : "#B91C1C") : tintText("green", isDark),
             }}
           >
             {photoStatus.message}

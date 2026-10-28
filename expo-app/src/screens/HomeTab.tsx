@@ -270,7 +270,7 @@ export default function HomeTab({
           {glance.map(([v, label, tint], i) => (
             <PopIn key={i} delay={i * 90} style={{ flex: 1 }}>
             <Card style={{ paddingVertical: 16, alignItems: "center" }}>
-              <Txt variant="displayExtraBold" style={{ fontSize: 22, color: tintFg(tint, isDark) }}>
+              <Txt variant="displayExtraBold" style={{ fontSize: 22, color: c.primary }}>
                 {v}
               </Txt>
               <Txt variant="bodyMedium" style={{ fontSize: 12, marginTop: 3, color: c.mutedForeground }}>

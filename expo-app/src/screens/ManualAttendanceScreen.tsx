@@ -25,7 +25,7 @@ import {
   UsersIcon,
   XIcon,
 } from "../icons";
-import { Avatar, Btn, Card, SectionHeading, TintTile, Txt, tintFg } from "../ui";
+import { Avatar, Btn, Card, SectionHeading, TintTile, Txt, tintFg, tintText } from "../ui";
 import { ChipRow, ChoiceList, SubmitButton } from "../components/AdminForm";
 import { usePullToRefresh } from "../refresh";
 
@@ -216,7 +216,7 @@ export default function ManualAttendanceScreen({
       {/* Confirmation of the last signature */}
       {justSigned ? (
         <Card style={{ marginTop: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 11 }}>
-          <CheckCircleIcon size={20} color={tintFg("green", isDark)} />
+          <CheckCircleIcon size={20} color={tintText("green", isDark)} />
           <Txt variant="bodySemi" style={{ flex: 1, fontSize: 13, color: c.foreground }}>
             {justSigned} has been signed in.
           </Txt>
@@ -321,12 +321,12 @@ export default function ManualAttendanceScreen({
 
       <View style={{ height: 18 }} />
       {alreadySigned ? (
-        <Txt style={{ fontSize: 12.5, textAlign: "center", marginBottom: 10, color: tintFg("amber", isDark) }}>
+        <Txt style={{ fontSize: 12.5, textAlign: "center", marginBottom: 10, color: tintText("amber", isDark) }}>
           {picked?.name.split(" ")[0]} is already signed in for this service.
         </Txt>
       ) : null}
       {openSession && awayReason ? (
-        <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, textAlign: "center", marginBottom: 10, color: tintFg("amber", isDark) }}>
+        <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, textAlign: "center", marginBottom: 10, color: tintText("amber", isDark) }}>
           {awayReason}
         </Txt>
       ) : null}
@@ -344,7 +344,7 @@ export default function ManualAttendanceScreen({
           {submitError}
         </Txt>
       ) : justSigned ? (
-        <Txt variant="bodySemi" style={{ fontSize: 12.5, marginTop: 10, textAlign: "center", color: tintFg("green", isDark) }}>
+        <Txt variant="bodySemi" style={{ fontSize: 12.5, marginTop: 10, textAlign: "center", color: tintText("green", isDark) }}>
           {justSigned} has been signed in.
         </Txt>
       ) : null}

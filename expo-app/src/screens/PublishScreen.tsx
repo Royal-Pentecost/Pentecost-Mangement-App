@@ -21,7 +21,7 @@ import {
   UploadIcon,
   XCircleIcon,
 } from "../icons";
-import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
+import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg, tintText } from "../ui";
 import { CoverPicker, Field, SubmitButton } from "../components/AdminForm";
 import { usePullToRefresh } from "../refresh";
 
@@ -350,7 +350,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
 
       {saved ? (
         <Card style={{ marginTop: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 11 }}>
-          <CheckCircleIcon size={20} color={tintFg("green", isDark)} />
+          <CheckCircleIcon size={20} color={tintText("green", isDark)} />
           <Txt variant="bodySemi" style={{ flex: 1, fontSize: 12.5, lineHeight: 17, color: c.foreground }}>
             {saved}
           </Txt>
@@ -528,7 +528,7 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
                     <Txt variant="bodySemi" style={{ fontSize: 12.5, color: active ? c.primary : c.mutedForeground }}>
                       {l.label}
                     </Txt>
-                    {filled ? <CheckCircleIcon size={13} color={tintFg("green", isDark)} /> : null}
+                    {filled ? <CheckCircleIcon size={13} color={tintText("green", isDark)} /> : null}
                   </Btn>
                 );
               })}

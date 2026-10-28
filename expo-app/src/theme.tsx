@@ -129,6 +129,21 @@ export const TINTS: Record<TintName, { light: string; dark: string; fg: string; 
   red: ONE_TILE,
 };
 
+/**
+ * Readable colour for a tint's meaning when it is drawn straight on a card —
+ * a green success tick, an amber warning line. Not for icons inside a tile:
+ * those are white on `ICON_TILE`, and using that white on a card made the text
+ * vanish in light mode.
+ */
+export const TINT_TEXT: Record<TintName, { light: string; dark: string }> = {
+  indigo: { light: "#4338CA", dark: "#A5B4FC" },
+  violet: { light: "#7C3AED", dark: "#C4B5FD" },
+  blue: { light: "#1E3A8A", dark: "#93C5FD" },
+  green: { light: "#15803D", dark: "#6EE7B7" },
+  amber: { light: "#B45309", dark: "#FCD34D" },
+  red: { light: "#DC2626", dark: "#FCA5A5" },
+};
+
 /** Fixed brand colours that do not come from the palette. */
 export const BRAND = {
   navy: "#1E3A8A",

@@ -17,7 +17,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { BODY, BRAND, FONT, MIN_TEXT, RADIUS, TINTS, TintName, ms, useTheme } from "./theme";
+import { BODY, BRAND, FONT, MIN_TEXT, RADIUS, TINTS, TINT_TEXT, TintName, ms, useTheme } from "./theme";
 
 // ─── Text ─────────────────────────────────────────────────────────────────────
 
@@ -244,8 +244,14 @@ export function TintTile({
   );
 }
 
+/** The icon colour inside a `TintTile` — white on the tile. Never use it on a card. */
 export function tintFg(tint: TintName, isDark: boolean) {
   return isDark ? TINTS[tint].fgDark : TINTS[tint].fg;
+}
+
+/** A tint's colour for text or an icon drawn directly on a card (success green, warning amber). */
+export function tintText(tint: TintName, isDark: boolean) {
+  return isDark ? TINT_TEXT[tint].dark : TINT_TEXT[tint].light;
 }
 
 // ─── Row card ─────────────────────────────────────────────────────────────────
