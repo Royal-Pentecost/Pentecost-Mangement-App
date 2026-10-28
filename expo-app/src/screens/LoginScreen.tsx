@@ -89,7 +89,9 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string, devCo
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 32 }}
+        // flexGrow lets the column fill the screen, so the footer can sit at the
+        // bottom of it rather than straight under the phone card.
+        contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 20 }}
         keyboardShouldPersistTaps="handled"
       >
        
@@ -199,8 +201,9 @@ export function PhoneInputScreen({ onSubmit }: { onSubmit: (phone: string, devCo
             </Btn>
           </View>
 
-          {/* Footer */}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", marginTop: 24 }}>
+          {/* Footer — `marginTop: "auto"` takes up all the spare height above it,
+              so it rests at the bottom of the screen. */}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", marginTop: "auto", paddingTop: 24 }}>
             <Txt style={{ fontSize: 12, lineHeight: 18, color: "rgba(255,255,255,0.6)" }}>
               By continuing you agree to our{" "}
             </Txt>

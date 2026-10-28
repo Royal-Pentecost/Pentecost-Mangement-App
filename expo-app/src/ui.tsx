@@ -5,6 +5,7 @@ import {
   Easing,
   GestureResponderEvent,
   Image,
+  Keyboard,
   Platform,
   Pressable,
   PressableProps,
@@ -67,6 +68,27 @@ export function Txt({
   // members make every app readable — capped so the largest setting enlarges
   // text without breaking the layout around it.
   return <Text maxFontSizeMultiplier={1.4} {...rest} style={[{ fontFamily: FAMILY[variant] }, scaled]} />;
+}
+
+// ─── Keyboard ─────────────────────────────────────────────────────────────────
+
+/**
+ * How tall the on-screen keyboard is right now, 0 when it is closed. Sheets in a
+ * `Modal` pad their scroll content by this much: Android does not shrink a
+ * modal's window for the keyboard, so without it the last fields and search
+ * results sat hidden behind the keys.
+ */
+export function useKeyboardHeight(): number {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (e) => setHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return height;
 }
 
 // ─── Pressable with the web build's active:scale-95 feel ──────────────────────

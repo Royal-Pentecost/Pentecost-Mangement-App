@@ -36,7 +36,7 @@ import {
   XIcon,
 } from "../icons";
 
-import { Btn, Card, Ping, Pulse, TintTile, Txt, tintFg } from "../ui";
+import { Btn, Card, Ping, Pulse, TintTile, Txt, tintFg, useKeyboardHeight } from "../ui";
 import { FadeIn, PopIn } from "../motion";
 import { useLocation } from "../location";
 import { useDirectory } from "../directory";
@@ -255,6 +255,7 @@ export default function AdminHub({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [correctionOpen, setCorrectionOpen] = useState(false);
+  const keyboardHeight = useKeyboardHeight();
   const [correctionSearch, setCorrectionSearch] = useState("");
   const [correctionMember, setCorrectionMember] = useState<Member | null>(null);
   const [correctionFirstName, setCorrectionFirstName] = useState("");
@@ -943,7 +944,10 @@ export default function AdminHub({
       <Modal visible={correctionOpen} transparent animationType="slide" onRequestClose={() => setCorrectionOpen(false)}>
         <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(7,12,24,0.62)" }}>
           <Pressable style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} onPress={() => setCorrectionOpen(false)} />
-          <View style={{ maxHeight: "88%", padding: 18, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.card }}>
+          {/* A fixed height, not maxHeight: a short result list used to shrink
+              the sheet down into the keyboard's space, hiding the matches. Tall,
+              the search box and its results stay near the top, above the keys. */}
+          <View style={{ height: "90%", padding: 18, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.card }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <Txt variant="displayExtraBold" style={{ fontSize: 20, color: c.foreground }}>Correct Member Data</Txt>
@@ -963,7 +967,7 @@ export default function AdminHub({
             />
 
             {!correctionMember ? (
-              <ScrollView style={{ marginTop: 10 }} keyboardShouldPersistTaps="handled">
+              <ScrollView style={{ marginTop: 10 }} contentContainerStyle={{ paddingBottom: keyboardHeight + 16 }} keyboardShouldPersistTaps="handled">
                 {correctionMatches.map((member) => (
                   <Btn key={member.id} onPress={() => chooseCorrectionMember(member)} style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: c.border }}>
                     <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>{member.name}</Txt>
@@ -986,7 +990,7 @@ export default function AdminHub({
                 ) : null}
               </ScrollView>
             ) : (
-              <ScrollView style={{ marginTop: 12 }} keyboardShouldPersistTaps="handled">
+              <ScrollView style={{ marginTop: 12 }} contentContainerStyle={{ paddingBottom: keyboardHeight + 16 }} keyboardShouldPersistTaps="handled">
                 {/* The member ID is the church's own identifier and every
                     attendance record points at it, so it is shown rather than
                     offered as a field. */}

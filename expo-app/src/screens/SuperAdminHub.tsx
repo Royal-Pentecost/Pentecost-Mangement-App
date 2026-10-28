@@ -22,7 +22,7 @@ import * as Api from "../api/resources";
 import { exportTextFile, stampedName, toCsv } from "../files";
 import { useContent } from "../store";
 import { AlertTriangleIcon, ChevronRightIcon, ChurchIcon, LockIcon, SearchIcon, ShieldIcon, XIcon } from "../icons";
-import { Avatar, Btn, Card, Txt } from "../ui";
+import { Avatar, Btn, Card, Txt, useKeyboardHeight } from "../ui";
 import { usePullToRefresh } from "../refresh";
 import { describeError } from "../session";
 
@@ -67,6 +67,7 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
   const [revokedIds, setRevokedIds] = useState<string[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
+  const keyboardHeight = useKeyboardHeight();
   /** The server's reason when a removal is refused, shown inside the dialog. */
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [removeStatus, setRemoveStatus] = useState<string | null>(null);
@@ -660,8 +661,10 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
       <Modal visible={showAssignModal} transparent animationType="slide" onRequestClose={() => setShowAssignModal(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" }}>
           <Pressable style={{ flex: 1 }} onPress={() => setShowAssignModal(false)} />
-          <View style={{ maxHeight: "90%", borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.card }}>
-            <ScrollView contentContainerStyle={{ padding: 17, paddingBottom: 32, gap: 16 }} keyboardShouldPersistTaps="handled">
+          {/* Fixed height and keyboard padding, so the member search results are
+              never left sitting behind the keyboard. */}
+          <View style={{ height: "90%", borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: c.card }}>
+            <ScrollView contentContainerStyle={{ padding: 17, paddingBottom: keyboardHeight + 32, gap: 16 }} keyboardShouldPersistTaps="handled">
               <View style={{ width: 40, height: 4, borderRadius: 2, alignSelf: "center", backgroundColor: c.border }} />
 
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
