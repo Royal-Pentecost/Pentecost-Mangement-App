@@ -404,6 +404,9 @@ function ChurchApp() {
     if (kind === "session_open") go({ tab: "attendance", sub: "none" });
     else if (kind === "event" || kind === "daily_verse") {
       go({ tab: "home", sub: loginRole === "member" ? "none" : "myDashboard" });
+    } else if (kind === "birthday") {
+      // A birthday wish or alert opens the notification list, where it is read in full.
+      go({ tab: "home", sub: "notifications" });
     }
   };
 

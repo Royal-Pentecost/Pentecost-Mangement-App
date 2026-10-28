@@ -287,6 +287,7 @@ const NOTIFICATION_KIND: Record<string, AppNotification["kind"]> = {
   elder_availability: "admin",
   system: "admin",
   daily_verse: "verse",
+  birthday: "birthday",
 };
 
 export function toNotification(n: ApiNotification, readIds: Set<string>): AppNotification {

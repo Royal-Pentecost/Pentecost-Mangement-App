@@ -105,6 +105,18 @@ export function CalendarIcon({ size = 20, color = "#000" }: IconProps) {
   );
 }
 
+/** A wrapped present — birthday notifications. */
+export function GiftIcon({ size = 20, color = "#000" }: IconProps) {
+  return (
+    <Svg width={ms(size)} height={ms(size)} viewBox="0 0 24 24" fill="none" stroke={color} {...stroke}>
+      <Rect x="3" y="8" width="18" height="4" rx="1" />
+      <Path d="M12 8v13" />
+      <Path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
+      <Path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5" />
+    </Svg>
+  );
+}
+
 export function IdCardIcon({ size = 20, color = "#000" }: IconProps) {
   return (
     <Svg width={ms(size)} height={ms(size)} viewBox="0 0 24 24" fill="none" stroke={color} {...stroke}>

@@ -940,7 +940,7 @@ export interface AppNotification {
   title: string;
   body: string;
   time: string;
-  kind: "attendance" | "event" | "study" | "verse" | "admin";
+  kind: "attendance" | "event" | "study" | "verse" | "admin" | "birthday";
   unread: boolean;
 }
 
