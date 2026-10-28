@@ -24,6 +24,7 @@ import { useContent } from "../store";
 import { AlertTriangleIcon, ChevronRightIcon, ChurchIcon, LockIcon, SearchIcon, ShieldIcon, XIcon } from "../icons";
 import { Avatar, Btn, Card, Txt } from "../ui";
 import { usePullToRefresh } from "../refresh";
+import { describeError } from "../session";
 
 const BOUNDARIES = ["Royal Assembly", "SMT", "Upper Room", "Grace Temple", "Ayigya District", "Ayigya North"];
 
@@ -62,6 +63,9 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
   const [revokedIds, setRevokedIds] = useState<string[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
+  /** The server's reason when a removal is refused, shown inside the dialog. */
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [removeStatus, setRemoveStatus] = useState<string | null>(null);
   const { directory: seedDirectory, removeMember } = useContent();
   const { members: roll, refresh: refreshRoll } = useDirectory();
 
@@ -332,10 +336,21 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
                 style={{ flex: 1, padding: 0, color: c.foreground, fontFamily: BODY.regular, fontSize: 13 }}
               />
             </View>
+            {removeStatus ? (
+              <Txt variant="bodySemi" style={{ fontSize: 12.5, marginTop: 10, color: isDark ? BRAND.greenLight : BRAND.greenDark }}>
+                {removeStatus}
+              </Txt>
+            ) : null}
             {memberSearch ? (
               <View style={{ marginTop: 8, gap: 6 }}>
                 {removableMembers.map((member) => (
-                  <Btn key={member.id} onPress={() => setRemoveTarget(member)} style={{ padding: 10, borderRadius: 10, backgroundColor: isDark ? "#DC262622" : "#FEF2F2" }}>
+                  <Btn
+                    key={member.id}
+                    onPress={() => {
+                      setRemoveError(null);
+                      setRemoveStatus(null);
+                      setRemoveTarget(member);
+                    }} style={{ padding: 10, borderRadius: 10, backgroundColor: isDark ? "#DC262622" : "#FEF2F2" }}>
                     <Txt variant="displayBold" style={{ fontSize: 13, color: c.foreground }}>{member.name}</Txt>
                     <Txt style={{ fontSize: 11, marginTop: 2, color: c.mutedForeground }}>{member.memberId} · {member.phone}</Txt>
                   </Btn>
@@ -435,15 +450,34 @@ export default function SuperAdminHub({ bottomInset }: { bottomInset: number }) 
             <Txt style={{ fontSize: 13.5, lineHeight: 20, marginTop: 8, color: c.mutedForeground }}>
               This will remove {removeTarget?.name} and their directory record from this app. This action cannot be undone.
             </Txt>
+            {removeError ? (
+              <Txt variant="bodySemi" style={{ fontSize: 12.5, lineHeight: 18, marginTop: 12, color: isDark ? "#FCA5A5" : "#B91C1C" }}>
+                {removeError}
+              </Txt>
+            ) : null}
             <View style={{ flexDirection: "row", gap: 10, marginTop: 20 }}>
               <Btn onPress={() => setRemoveTarget(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: c.muted }}>
                 <Txt variant="displayBold" style={{ fontSize: 14, color: c.foreground }}>Cancel</Txt>
               </Btn>
               <Btn
-                onPress={() => {
-                  if (removeTarget) removeMember(removeTarget.id);
+                // Deleted on the server, not just from this phone's list. It
+                // used to only filter the local copy, so the member was back on
+                // the next refresh and on every other phone all along.
+                onPress={async () => {
+                  if (!removeTarget) return;
+                  const target = removeTarget;
+                  setRemoveError(null);
+                  try {
+                    await Api.deleteMemberRecord(target.id);
+                  } catch (e) {
+                    setRemoveError(describeError(e));
+                    return;
+                  }
+                  removeMember(target.id);
                   setRemoveTarget(null);
                   setMemberSearch("");
+                  setRemoveStatus(`${target.name} was removed from the roll.`);
+                  await refreshRoll();
                 }}
                 style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: BRAND.red }}
               >

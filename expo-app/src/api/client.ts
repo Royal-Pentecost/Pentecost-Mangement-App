@@ -152,6 +152,23 @@ function buildUrl(path: string, query?: RequestOptions["query"]): string {
 }
 
 /**
+ * Whether the last request failed to reach the server at all. When the next
+ * one gets through, `onServerBack` listeners run, so screens can drop their
+ * "could not reach the server" messages and reload instead of showing them for
+ * the rest of the session.
+ */
+let serverWasDown = false;
+const serverBackListeners = new Set<() => void>();
+
+/** Runs `listener` each time the server answers after being unreachable. Returns an unsubscribe. */
+export function onServerBack(listener: () => void): () => void {
+  serverBackListeners.add(listener);
+  return () => {
+    serverBackListeners.delete(listener);
+  };
+}
+
+/**
  * Performs one request and returns the parsed body.
  *
  * Throws `ApiError` for anything that is not a 2xx, including a network failure
@@ -183,6 +200,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     });
   } catch (e) {
     const aborted = (e as Error)?.name === "AbortError";
+    serverWasDown = true;
     throw new ApiError(
       0,
       aborted
@@ -191,6 +209,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     );
   } finally {
     clearTimeout(timeout);
+  }
+
+  // Any answer at all — even an error status — means the server is up again.
+  if (serverWasDown) {
+    serverWasDown = false;
+    serverBackListeners.forEach((l) => l());
   }
 
   if (response.status === 204) return undefined as T;

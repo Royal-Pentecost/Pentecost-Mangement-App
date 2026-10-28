@@ -26,6 +26,7 @@ import { logoutOnServer } from "./src/api/auth";
 import { Notifications, notificationKind, registerForPush, unregisterPush } from "./src/push";
 import { DirectoryProvider, useDirectory } from "./src/directory";
 import * as Api from "./src/api/resources";
+import { onServerBack } from "./src/api/client";
 import { describeError } from "./src/session";
 import {
   AppPhase,
@@ -138,6 +139,17 @@ function ChurchApp() {
   /** The server-side session this device is signing against. */
   const [remoteSessionId, setRemoteSessionId] = useState<string | null>(null);
   const [attendanceError, setAttendanceError] = useState<string | null>(null);
+  // The red box under the Mark button goes away on its own — after 12 seconds,
+  // or as soon as the server answers again — instead of staying for the session.
+  useEffect(() => {
+    if (!attendanceError) return;
+    const timer = setTimeout(() => setAttendanceError(null), 12_000);
+    const unsubscribe = onServerBack(() => setAttendanceError(null));
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [attendanceError]);
   const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
   // Counted by the server for the session that is open now — these were the
   // literals 89 and 7, shown before anyone had signed anything.

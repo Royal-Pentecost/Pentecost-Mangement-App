@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { AppState } from "react-native";
 
-import { ApiError } from "./api/client";
+import { ApiError, onServerBack } from "./api/client";
 import {
   colourFor,
   initialsOf,
@@ -189,6 +189,19 @@ export function DirectoryProvider({ children }: { children: React.ReactNode }) {
       setError(null);
     }
   }, [status, load]);
+
+  // A failed load used to leave "Could not reach the server" on the lists until
+  // someone pulled to refresh. Now it retries every 20 seconds while it is
+  // failing, and at once when any other request finds the server back.
+  useEffect(() => {
+    if (status !== "signedIn" || !error) return;
+    const retry = setInterval(() => void load(), 20_000);
+    const unsubscribe = onServerBack(() => void load());
+    return () => {
+      clearInterval(retry);
+      unsubscribe();
+    };
+  }, [status, error, load]);
 
   const value = useMemo<DirectoryValue>(() => {
     // The signed-in member may not be in the fetched page set yet — and their

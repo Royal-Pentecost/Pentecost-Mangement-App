@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { AppState } from "react-native";
 
 import * as Api from "./api/resources";
+import { onServerBack } from "./api/client";
 import { toBibleStudy, toDailyVerse, toEvent, toNotification, toServiceSlot } from "./api/adapters";
 import { ApiWeekday } from "./api/types";
 import { describeError } from "./session";
@@ -276,6 +277,19 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
    * rather than blanking the dashboard.
    */
   const clearPublishError = useCallback(() => setPublishError(null), []);
+
+  // A publish problem is news for a moment, not a fixture: it used to stay on
+  // the Publish screen until the next publish succeeded, long after the server
+  // was back. It clears after 12 seconds, or as soon as the server answers again.
+  useEffect(() => {
+    if (!publishError) return;
+    const timer = setTimeout(() => setPublishError(null), 12_000);
+    const unsubscribe = onServerBack(() => setPublishError(null));
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [publishError]);
 
   const refreshContent = useCallback(async () => {
     const [apiSchedules, apiEvents, apiNotifications, apiReads, apiAssembly, apiStudies, apiVerses] = await Promise.all([
