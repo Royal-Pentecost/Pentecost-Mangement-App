@@ -23,6 +23,7 @@ import { Btn, Txt } from "../ui";
 import { EASE_OUT, SwapFade } from "../motion";
 import { HeaderBlock, HeaderButton, HeaderTitle } from "../components/HeaderBlock";
 import { useDirectory } from "../directory";
+import { useContent } from "../store";
 
 import HomeTab from "./HomeTab";
 import AttendanceTab from "./AttendanceTab";
@@ -164,6 +165,8 @@ export default function DashboardShell(props: {
   canGoBack: boolean;
 }) {
   const { c, isDark, mode, toggle } = useTheme();
+  const { notifications } = useContent();
+  const unreadCount = notifications.filter((n) => n.unread).length;
   const insets = useSafeAreaInsets();
 
   const { assembly, mainTab, subScreen, selectedElder, selectedMember, isAdmin, loginRole } = props;
@@ -248,9 +251,35 @@ export default function DashboardShell(props: {
             {mode === "light" ? <MoonIcon color="#fff" /> : <SunIcon color="#fff" />}
           </HeaderButton>
 
-          <HeaderButton onPress={props.onOpenNotifications} label="Notifications">
+          <HeaderButton
+            onPress={props.onOpenNotifications}
+            label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+          >
             <BellIcon color="#fff" />
-            <View style={{ position: "absolute", top: 7, right: 7, width: 8, height: 8, borderRadius: 4, backgroundColor: "#F87171" }} />
+            {/* How many are unread, not a dot that was always there. Gone at zero. */}
+            {unreadCount > 0 ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -4,
+                  minWidth: 20,
+                  height: 20,
+                  paddingHorizontal: 5,
+                  borderRadius: 10,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "#DC2626",
+                  borderWidth: 2,
+                  borderColor: isDark ? "#132050" : "#1E3A8A",
+                }}
+              >
+                <Txt variant="bodySemi" style={{ fontSize: 10.5, lineHeight: 13, color: "#fff" }}>
+                  {unreadCount > 99 ? "99+" : String(unreadCount)}
+                </Txt>
+              </View>
+            ) : null}
           </HeaderButton>
         </View>
       </HeaderBlock>

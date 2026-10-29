@@ -38,7 +38,7 @@ import {
 
 import { Btn, Card, Ping, Pulse, TintTile, Txt, tintFg, useKeyboardHeight } from "../ui";
 import { FadeIn, PopIn } from "../motion";
-import { useLocation } from "../location";
+import { parseGeofence, useLocation } from "../location";
 import { useDirectory } from "../directory";
 
 import * as Api from "../api/resources";
@@ -390,7 +390,7 @@ export default function AdminHub({
   // Read before the correction form below, which searches the real roll rather
   // than the seeded `directory` — correcting a record only means something if
   // the record is the one the server holds.
-  const { members: liveMembers, loading: directoryLoading, refresh: refreshDirectory } = useDirectory();
+  const { members: liveMembers, elders: leaders, loading: directoryLoading, refresh: refreshDirectory } = useDirectory();
 
   const {
     geofence,
@@ -680,6 +680,38 @@ export default function AdminHub({
 
   // Counts come from the roll the server holds, not a figure typed in once.
   const incompleteCount = liveMembers.filter((m) => !m.phone || !m.dayBorn).length;
+
+  /**
+   * What each record category's bar and "pending" chip measure, worked out from
+   * the live roll. They used to be numbers typed into the design (87%, 14
+   * pending…) that never moved; each now says what it is counting.
+   */
+  const pctOf = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
+  const sundaysAttended = liveMembers.reduce((sum, m) => sum + (m.attended ?? 0), 0);
+  const sundaysPossible = liveMembers.reduce((sum, m) => sum + (m.held ?? 0), 0);
+  const leadersWithoutPhone = leaders.filter((l) => !l.phone).length;
+  const sectionFigures: Record<string, { pct: number; metric: string; pending: number }> = {
+    members: {
+      pct: pctOf(liveMembers.length - incompleteCount, liveMembers.length),
+      metric: "complete",
+      pending: incompleteCount,
+    },
+    attendance: {
+      pct: pctOf(sundaysAttended, sundaysPossible),
+      metric: "Sunday attendance",
+      pending: parseGeofence(geofence) ? 0 : 1,
+    },
+    leadership: {
+      pct: pctOf(leaders.length - leadersWithoutPhone, leaders.length),
+      metric: "with a phone",
+      pending: leadersWithoutPhone,
+    },
+    milestones: {
+      pct: pctOf(liveMembers.filter((m) => m.milestones?.some((x) => x.done)).length, liveMembers.length),
+      metric: "recorded",
+      pending: 0,
+    },
+  };
 
   const overviewStats = [
     {
@@ -1048,6 +1080,7 @@ export default function AdminHub({
         {visibleRecordSections(loginRole).map((section, sectionIndex) => {
           const isOpen = expandedSection === section.id;
           const accentColor = isDark ? section.darkColor : section.color;
+          const fig = sectionFigures[section.id] ?? { pct: 0, metric: "", pending: 0 };
 
           return (
             <FadeIn key={section.id} index={sectionIndex}>
@@ -1066,10 +1099,10 @@ export default function AdminHub({
                     <Txt variant="displayBold" style={{ flex: 1, fontSize: 14, lineHeight: 18, color: c.foreground }}>
                       {section.title}
                     </Txt>
-                    {section.pending > 0 ? (
+                    {!directoryLoading && fig.pending > 0 ? (
                       <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: isDark ? "#D9770622" : "#FEF3C7" }}>
                         <Txt variant="bodySemi" style={{ fontSize: 10, color: isDark ? BRAND.goldLight : BRAND.gold }}>
-                          {section.pending} pending
+                          {fig.pending} pending
                         </Txt>
                       </View>
                     ) : null}
@@ -1081,10 +1114,10 @@ export default function AdminHub({
 
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
                     <View style={{ flex: 1, height: 6, borderRadius: 3, overflow: "hidden", backgroundColor: c.muted }}>
-                      <View style={{ height: "100%", width: `${section.pct}%`, borderRadius: 3, backgroundColor: accentColor }} />
+                      <View style={{ height: "100%", width: `${directoryLoading ? 0 : fig.pct}%`, borderRadius: 3, backgroundColor: accentColor }} />
                     </View>
                     <Txt variant="bodySemi" style={{ fontSize: 10, color: accentColor }}>
-                      {section.pct}%
+                      {directoryLoading ? "…" : `${fig.pct}% ${fig.metric}`}
                     </Txt>
                   </View>
                 </View>

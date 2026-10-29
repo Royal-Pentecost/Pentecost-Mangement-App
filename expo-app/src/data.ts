@@ -1274,25 +1274,21 @@ export const recordSections = [
     title: "Member Directory Data",
     icon: "users",
     desc: "Add members, upload photos, correct records and phone numbers",
-    pct: 87,
     color: "#1E3A8A",
     darkColor: "#3B82F6",
     // "Set Assembly / District" was dropped: a member's assembly follows the
     // admin who adds them, and only Royal Assembly is live, so the field it
     // focused was a free-text box the server never read.
     actions: ["Add New Member", "Upload Profile Photo", "Assign Member ID", "Correct Member Record"],
-    pending: 14,
   },
   {
     id: "attendance",
     title: "Attendance & Geofencing",
     icon: "pin",
     desc: "Configure geofence, service times, and override logs",
-    pct: 72,
     color: "#7C3AED",
     darkColor: "#A78BFA",
     actions: ["Set Geofence Coordinates", "Configure Service Times", "Manual Log Override", "Export Attendance Report"],
-    pending: 3,
   },
   {
     id: "leadership",
@@ -1301,22 +1297,18 @@ export const recordSections = [
     title: "Leadership & District Roster",
     icon: "award",
     desc: "Assign elders, update contacts, reassign boundaries",
-    pct: 95,
     color: "#059669",
     darkColor: "#34D399",
     actions: ["Promote / Assign Elder", "Update Contact Details", "Assign Ministry Role", "Reassign Assembly Boundary"],
-    pending: 1,
   },
   {
     id: "milestones",
     title: "Spiritual Milestones Register",
     icon: "cross",
     desc: "Mark baptism dates, confirmations, and certifications",
-    pct: 64,
     color: "#DC2626",
     darkColor: "#F87171",
     actions: ["Log Water Baptism", "Record Confirmation", "Add Marriage Certificate", "Mark Special Ordination"],
-    pending: 22,
   },
 ];
 

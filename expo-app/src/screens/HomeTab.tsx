@@ -225,6 +225,14 @@ export default function HomeTab({
         [String(today.firstTimers), "First Timers", "amber"],
       ];
 
+  // Who signed in, by the sex on their record. Members whose sex was never
+  // recorded are in Present but in neither of these, so the two can sum to less.
+  const signedMembers = directory.filter((m) => today.presentIds.has(m.id));
+  const bySex: [string, string][] = [
+    [today.loaded ? String(signedMembers.filter((m) => m.sex === "M").length) : "…", "Men"],
+    [today.loaded ? String(signedMembers.filter((m) => m.sex === "F").length) : "…", "Women"],
+  ];
+
   return (
     <ScrollView refreshControl={pullToRefresh}
       style={{ flex: 1 }}
@@ -280,6 +288,25 @@ export default function HomeTab({
             </PopIn>
           ))}
         </View>
+
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          {bySex.map(([v, label], i) => (
+            <PopIn key={label} delay={(i + 3) * 90} style={{ flex: 1 }}>
+            <Card style={{ paddingVertical: 14, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Txt variant="bodyMedium" style={{ fontSize: 13, color: c.mutedForeground }}>
+                {label} signed in
+              </Txt>
+              <Txt variant="displayExtraBold" style={{ fontSize: 22, color: c.primary }}>
+                {v}
+              </Txt>
+            </Card>
+            </PopIn>
+          ))}
+        </View>
+
+        <Txt style={{ fontSize: 11.5, lineHeight: 16, color: c.mutedForeground }}>
+          First timers are visitors at Royal Assembly for the first time, signed in by an admin through Manual Attendance.
+        </Txt>
 
         {/* Says what the numbers are counting, so a zero reads as "not yet"
             rather than "nobody came". */}
