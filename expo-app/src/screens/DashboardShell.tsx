@@ -46,8 +46,6 @@ const TABS: { id: MainTab; label: string; Icon: React.ComponentType<{ size?: num
   { id: "home", label: "Home", Icon: HomeIcon },
   { id: "attendance", label: "Attendance", Icon: MapPinIcon },
   { id: "leaderboard", label: "Leaderboard", Icon: TrophyIcon },
-  // Its own tab so every member can reach it in one tap, published or not.
-  { id: "videos", label: "Videos", Icon: PlayIcon },
   { id: "settings", label: "Settings", Icon: SettingsIcon },
 ];
 
@@ -212,8 +210,6 @@ export default function DashboardShell(props: {
                     ? "Publish Content"
                   : subScreen === "settingsDetail"
                     ? settingsPages[props.settingsTopic].title
-                  : mainTab === "videos"
-                    ? "Videos"
                   : mainTab === "settings"
                     ? "Settings"
                   : isMember && mainTab === "home"
@@ -223,8 +219,6 @@ export default function DashboardShell(props: {
   const eyebrow =
     subScreen === "none" && mainTab === "settings"
       ? "Account"
-      : subScreen === "none" && mainTab === "videos"
-        ? "Watch"
       : subScreen === "none" && isMember && mainTab === "home"
         ? assembly.name
         : EYEBROW[subScreen];
@@ -260,6 +254,12 @@ export default function DashboardShell(props: {
 
           <HeaderButton onPress={toggle} label={mode === "light" ? "Switch to dark mode" : "Switch to light mode"}>
             {mode === "light" ? <MoonIcon color="#fff" /> : <SunIcon color="#fff" />}
+          </HeaderButton>
+
+          {/* Videos sit in the header, one tap from every screen, rather than
+              taking a fifth slot in the bottom bar. */}
+          <HeaderButton onPress={props.onOpenVideos} label="Videos">
+            <PlayIcon color="#fff" />
           </HeaderButton>
 
           <HeaderButton
@@ -407,7 +407,6 @@ export default function DashboardShell(props: {
           <LeaderboardTab user={props.sessionUser} bottomInset={contentBottomInset} />
         ) : null}
 
-        {subScreen === "none" && mainTab === "videos" ? <VideosScreen bottomInset={contentBottomInset} /> : null}
 
         {subScreen === "none" && mainTab === "settings" ? (
           <SettingsTab

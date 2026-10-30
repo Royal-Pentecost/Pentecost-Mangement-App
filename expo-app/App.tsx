@@ -405,7 +405,7 @@ function ChurchApp() {
     else if (kind === "event" || kind === "daily_verse") {
       go({ tab: "home", sub: loginRole === "member" ? "none" : "myDashboard" });
     } else if (kind === "video") {
-      go({ tab: "videos", sub: "none" });
+      go({ sub: "videos" });
     } else if (kind === "birthday") {
       // A birthday wish or alert opens the notification list, where it is read in full.
       go({ tab: "home", sub: "notifications" });
@@ -607,7 +607,7 @@ function ChurchApp() {
           onOpenManualAttendance={() => go({ sub: "manualAttendance" })}
           onOpenPublish={() => go({ sub: "publish" })}
           onOpenNotifications={() => go({ sub: "notifications" })}
-          onOpenVideos={() => go({ tab: "videos", sub: "none" })}
+          onOpenVideos={() => go({ sub: "videos" })}
           sessionUser={sessionUser}
           onChangePhoto={async (uri) => {
             // Show it straight away so the tap feels answered, then upload. If
