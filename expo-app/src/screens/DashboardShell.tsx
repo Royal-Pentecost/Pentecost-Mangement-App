@@ -18,7 +18,7 @@ import {
   settingsPages,
   visibleMembers,
 } from "../data";
-import { ArrowLeftIcon, BellIcon, CrownIcon, HomeIcon, MapPinIcon, MoonIcon, PlayIcon, SettingsIcon, ShieldIcon, SunIcon, TrophyIcon } from "../icons";
+import { ArrowLeftIcon, BellIcon, CrownIcon, HomeIcon, MapPinIcon, MoonIcon, SettingsIcon, ShieldIcon, SunIcon, TrophyIcon } from "../icons";
 import { Btn, Txt } from "../ui";
 import { EASE_OUT, SwapFade } from "../motion";
 import { HeaderBlock, HeaderButton, HeaderTitle } from "../components/HeaderBlock";
@@ -254,12 +254,6 @@ export default function DashboardShell(props: {
 
           <HeaderButton onPress={toggle} label={mode === "light" ? "Switch to dark mode" : "Switch to light mode"}>
             {mode === "light" ? <MoonIcon color="#fff" /> : <SunIcon color="#fff" />}
-          </HeaderButton>
-
-          {/* Videos sit in the header, one tap from every screen, rather than
-              taking a fifth slot in the bottom bar. */}
-          <HeaderButton onPress={props.onOpenVideos} label="Videos">
-            <PlayIcon color="#fff" />
           </HeaderButton>
 
           <HeaderButton

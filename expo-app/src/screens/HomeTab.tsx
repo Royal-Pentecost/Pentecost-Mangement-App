@@ -8,6 +8,7 @@ import { ChevronRightIcon, FolderIcon, HomeIcon, PlayIcon, ShieldIcon, StopIcon,
 import { Btn, Card, StatusDot, TintTile, Txt, tintFg } from "../ui";
 import { FadeIn, PopIn } from "../motion";
 import { useContent } from "../store";
+import LatestVideoCard from "../components/LatestVideoCard";
 import { useTodayAttendance } from "../today";
 import { useSession } from "../session";
 import { addressOf } from "../naming";
@@ -362,6 +363,16 @@ export default function HomeTab({
           </Btn>
           </FadeIn>
         ))}
+
+        {/* Videos: shown once something is published; the card is the way in. */}
+        {videos.length > 0 ? (
+          <>
+            <Txt variant="bodySemi" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", marginTop: 12, marginBottom: 2, color: c.mutedForeground }}>
+              Videos
+            </Txt>
+            <LatestVideoCard onPress={onOpenVideos} />
+          </>
+        ) : null}
 
         {/* Admin panel */}
         {isAdmin ? (
