@@ -4,7 +4,7 @@ import { AppState } from "react-native";
 import * as Api from "./api/resources";
 import { onServerBack } from "./api/client";
 import { toBibleStudy, toDailyVerse, toEvent, toNotification, toServiceSlot } from "./api/adapters";
-import { ApiWeekday } from "./api/types";
+import { ApiSliderImage, ApiVideo, ApiWeekday } from "./api/types";
 import { describeError } from "./session";
 import { useSession } from "./session";
 
@@ -46,6 +46,15 @@ interface ContentState {
   removeDailyVerse: () => Promise<void>;
   /** The dashboard carousel: the seeded photographs plus every cover an admin has attached. */
   slides: Slide[];
+  /** Photos admins pushed onto the slider, newest first — shown before the ministries. */
+  sliderImages: ApiSliderImage[];
+  /** Resolves true once the photo is on every member's slider. */
+  pushSlide: (uri: string, caption: string) => Promise<boolean>;
+  removeSlide: (id: string) => Promise<void>;
+  /** Published videos, newest first. */
+  videos: ApiVideo[];
+  publishVideo: (input: { title: string; description: string; youtubeUrl?: string; clipUri?: string }) => Promise<boolean>;
+  removeVideo: (id: string) => Promise<void>;
   /** The language members read the study guide in. */
   language: Lang;
   setLanguage: (l: Lang) => void;
@@ -258,6 +267,8 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   const [manualAttendance, setManualAttendance] = useState<ManualAttendanceRecord[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [dailyVerse, setDailyVerse] = useState<DailyVerse | null>(null);
+  const [sliderImages, setSliderImages] = useState<ApiSliderImage[]>([]);
+  const [videos, setVideos] = useState<ApiVideo[]>([]);
   const [language, setLanguage] = useState<Lang>("en");
   const [directory, setDirectory] = useState<Member[]>([]);
   const [geofence, setGeofence] = useState<Geofence>(defaultGeofence);
@@ -292,7 +303,7 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
   }, [publishError]);
 
   const refreshContent = useCallback(async () => {
-    const [apiSchedules, apiEvents, apiNotifications, apiReads, apiAssembly, apiStudies, apiVerses] = await Promise.all([
+    const [apiSchedules, apiEvents, apiNotifications, apiReads, apiAssembly, apiStudies, apiVerses, apiSlides, apiVideos] = await Promise.all([
       Api.fetchSchedules().catch(() => null),
       Api.fetchEvents().catch(() => null),
       Api.fetchNotifications().catch(() => null),
@@ -300,7 +311,12 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       assemblyId ? Api.fetchAssembly(assemblyId).catch(() => null) : Promise.resolve(null),
       Api.fetchStudies().catch(() => null),
       Api.fetchDailyVerses().catch(() => null),
+      Api.fetchSliderImages().catch(() => null),
+      Api.fetchVideos().catch(() => null),
     ]);
+
+    if (apiSlides) setSliderImages(apiSlides);
+    if (apiVideos) setVideos(apiVideos);
 
     if (apiSchedules) setSchedule(apiSchedules.map(toServiceSlot));
     if (apiEvents) setEvents(apiEvents.map(toEvent));
@@ -723,10 +739,64 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // The four ministries, fixed. Published covers used to be pushed in front of
-  // them, so every service or event an admin added took over the slider; they
-  // now appear only on their own tile and card.
-  const slides = seedSlides;
+  // Pushed photos first, newest first, then the four ministries, which are
+  // always there. Covers attached to services and events never join it: only
+  // what an admin deliberately pushes to the slider does.
+  const slides = useMemo<Slide[]>(
+    () => [
+      ...sliderImages.map((img) => ({
+        id: `pushed-${img.id}`,
+        source: { uri: img.image },
+        label: img.caption || "Royal Assembly",
+      })),
+      ...seedSlides,
+    ],
+    [sliderImages],
+  );
+
+  const pushSlide = useCallback<ContentState["pushSlide"]>(async (uri, caption) => {
+    try {
+      const created = await Api.pushSliderImage(uri, caption);
+      setSliderImages((list) => [created, ...list]);
+      setPublishError(null);
+      return true;
+    } catch (e) {
+      setPublishError(describeError(e));
+      return false;
+    }
+  }, []);
+
+  const removeSlide = useCallback<ContentState["removeSlide"]>(async (id) => {
+    try {
+      await Api.deleteSliderImage(id);
+      setSliderImages((list) => list.filter((img) => img.id !== id));
+    } catch (e) {
+      setPublishError(describeError(e));
+    }
+  }, []);
+
+  const publishVideo = useCallback<ContentState["publishVideo"]>(async ({ title, description, youtubeUrl, clipUri }) => {
+    try {
+      const created = clipUri
+        ? await Api.uploadVideoClip({ title, description, uri: clipUri })
+        : await Api.publishYouTubeVideo({ title, description, youtube_url: youtubeUrl ?? "" });
+      setVideos((list) => [created, ...list]);
+      setPublishError(null);
+      return true;
+    } catch (e) {
+      setPublishError(describeError(e));
+      return false;
+    }
+  }, []);
+
+  const removeVideo = useCallback<ContentState["removeVideo"]>(async (id) => {
+    try {
+      await Api.deleteVideo(id);
+      setVideos((list) => list.filter((v) => v.id !== id));
+    } catch (e) {
+      setPublishError(describeError(e));
+    }
+  }, []);
 
   const value = useMemo<ContentState>(
     () => ({
@@ -739,6 +809,12 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       publishDailyVerse,
       removeDailyVerse,
       slides,
+      sliderImages,
+      pushSlide,
+      removeSlide,
+      videos,
+      publishVideo,
+      removeVideo,
       language,
       setLanguage,
       directory,
@@ -778,6 +854,12 @@ export function ContentProvider({ children }: { children: React.ReactNode }) {
       publishDailyVerse,
       removeDailyVerse,
       slides,
+      sliderImages,
+      pushSlide,
+      removeSlide,
+      videos,
+      publishVideo,
+      removeVideo,
       language,
       setLanguage,
       directory,

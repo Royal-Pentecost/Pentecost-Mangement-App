@@ -131,6 +131,12 @@ const KEEP_PRECISE_FOR = 30_000;
  */
 const POOR_ACCURACY = 150;
 
+/**
+ * The most a reading's own uncertainty may stretch the boundary, in metres —
+ * must match GPS_ALLOWANCE_M on the server (attendance/views.py).
+ */
+export const GPS_ALLOWANCE_M = 40;
+
 export function LocationProvider({ geofence, children }: { geofence: Geofence; children: React.ReactNode }) {
   const [phase, setPhase] = useState<LocationPhase>("idle");
   const [fix, setFix] = useState<Fix | null>(null);
@@ -189,7 +195,7 @@ export function LocationProvider({ geofence, children }: { geofence: Geofence; c
       const last = await Location.getLastKnownPositionAsync({ maxAge: STALE_AFTER });
       if (last) record(last);
 
-      const now = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const now = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
       record(now);
     } catch {
       // Thrown when there is no provider at all — an emulator with no fake
@@ -243,7 +249,7 @@ export function LocationProvider({ geofence, children }: { geofence: Geofence; c
           if (status !== Location.PermissionStatus.GRANTED) return;
 
           const sub = await Location.watchPositionAsync(
-            { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 3000 },
+            { accuracy: Location.Accuracy.Highest, distanceInterval: 5, timeInterval: 3000 },
             record,
           );
           // The last watcher may have gone while we were awaiting the handle.
@@ -276,7 +282,11 @@ export function LocationProvider({ geofence, children }: { geofence: Geofence; c
     }
 
     const d = distanceMetres(fix.lat, fix.lng, fence.lat, fence.lng);
-    const within = d <= fence.radius;
+    // Indoors the reading wanders 30-60m off the pew the member is sitting in,
+    // and says so in its accuracy. If that accuracy circle reaches the fence the
+    // member counts as inside — up to GPS_ALLOWANCE_M past it, the same cap the
+    // server applies, so the button and the server never disagree.
+    const within = d <= fence.radius + Math.min(Math.max(fix.accuracy, 0), GPS_ALLOWANCE_M);
 
     // If the accuracy circle reaches across the boundary, the reading cannot
     // settle the question on its own — but it still leans one way, and the

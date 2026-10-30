@@ -149,6 +149,7 @@ export default function ManualAttendanceScreen({
         note: `${status === "late" ? "Late — " : ""}${reasonLabel} — signed by ${signedBy.name}`,
         lat: location.fix.lat,
         lng: location.fix.lng,
+        accuracy: location.fix.accuracy,
       });
       await today.refresh();
       void refreshStats();

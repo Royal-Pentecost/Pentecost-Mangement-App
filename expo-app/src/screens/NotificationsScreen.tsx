@@ -4,7 +4,7 @@ import { Modal, Pressable, ScrollView, View } from "react-native";
 import { BRAND, RADIUS, TintName, useTheme } from "../theme";
 import { AppNotification } from "../data";
 import { useContent } from "../store";
-import { BellIcon, BookIcon, CalendarIcon, ClockIcon, GiftIcon, PinIcon, ShieldIcon, TrashIcon } from "../icons";
+import { BellIcon, BookIcon, CalendarIcon, ClockIcon, GiftIcon, PinIcon, PlayIcon, ShieldIcon, TrashIcon } from "../icons";
 import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg } from "../ui";
 import { FadeIn } from "../motion";
 import { usePullToRefresh } from "../refresh";
@@ -19,6 +19,7 @@ const KIND_STYLE: Record<
   verse: { tint: "green", Icon: BookIcon },
   admin: { tint: "indigo", Icon: ShieldIcon },
   birthday: { tint: "amber", Icon: GiftIcon },
+  video: { tint: "blue", Icon: PlayIcon },
 };
 
 function NotificationRow({ item, onPress }: { item: AppNotification; onPress: () => void }) {

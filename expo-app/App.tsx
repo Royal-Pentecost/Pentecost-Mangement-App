@@ -404,6 +404,8 @@ function ChurchApp() {
     if (kind === "session_open") go({ tab: "attendance", sub: "none" });
     else if (kind === "event" || kind === "daily_verse") {
       go({ tab: "home", sub: loginRole === "member" ? "none" : "myDashboard" });
+    } else if (kind === "video") {
+      go({ tab: "home", sub: "videos" });
     } else if (kind === "birthday") {
       // A birthday wish or alert opens the notification list, where it is read in full.
       go({ tab: "home", sub: "notifications" });
@@ -483,6 +485,7 @@ function ChurchApp() {
         method: "gps",
         lat: adminFix.lat,
         lng: adminFix.lng,
+        accuracy: adminFix.accuracy,
       });
       setAttendanceMarked(true);
       // Re-read rather than add one: a second tap, or the same member on two
@@ -604,6 +607,7 @@ function ChurchApp() {
           onOpenManualAttendance={() => go({ sub: "manualAttendance" })}
           onOpenPublish={() => go({ sub: "publish" })}
           onOpenNotifications={() => go({ sub: "notifications" })}
+          onOpenVideos={() => go({ sub: "videos" })}
           sessionUser={sessionUser}
           onChangePhoto={async (uri) => {
             // Show it straight away so the tap feels answered, then upload. If

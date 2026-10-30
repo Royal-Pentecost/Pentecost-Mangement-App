@@ -55,7 +55,8 @@ interface DirectoryValue {
 const DirectoryCtx = createContext<DirectoryValue | null>(null);
 
 /** Presiding elder first, then elders, deacons and deaconesses. */
-const OFFICE_RANK = ["presiding elder", "elder", "deacon", "deaconess"];
+// The district pastor leads all four assemblies, so heads the list.
+const OFFICE_RANK = ["pastor", "presiding elder", "elder", "deacon", "deaconess"];
 
 function officeRank(title: string): number {
   const t = title.trim().toLowerCase();

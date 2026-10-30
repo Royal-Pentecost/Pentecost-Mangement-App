@@ -169,6 +169,7 @@ export default function HomeTab({
   isAdmin,
   onOpenElders,
   onOpenMembers,
+  onOpenVideos,
   onOpenMyDashboard,
   sessionStartTime,
   attendanceError,
@@ -185,6 +186,7 @@ export default function HomeTab({
   isAdmin: boolean;
   onOpenElders: () => void;
   onOpenMembers: () => void;
+  onOpenVideos: () => void;
   onOpenMyDashboard: () => void;
   sessionStartTime: string | null;
   /** Why opening or closing the session failed — set by the server's reply. */
@@ -205,6 +207,7 @@ export default function HomeTab({
   const me = useMe();
   const { member: signedIn, firstTime } = useSession();
   const today = useTodayAttendance();
+  const { videos } = useContent();
 
   // Addressed the way the dashboard greets them — "Elder Ampofo", "Mrs Boakye",
   // or a first name — rather than by the sample member every admin was called.
@@ -326,6 +329,7 @@ export default function HomeTab({
         {(
           [
             { label: "My Dashboard", sub: greeting, tint: "blue" as TintName, Icon: HomeIcon, fn: onOpenMyDashboard },
+            { label: "Videos", sub: videos.length ? `${videos.length} published` : "Sermons and clips", tint: "blue" as TintName, Icon: PlayIcon, fn: onOpenVideos },
             ...(canViewMembers(loginRole)
               ? [
                   {

@@ -258,9 +258,25 @@ export async function uploadImage<T>(
   uri: string,
   method: "PATCH" | "POST" = "PATCH",
 ): Promise<T> {
+  return uploadFile<T>(path, field, uri, { method });
+}
+
+const VIDEO_TYPES: Record<string, string> = { mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", "3gp": "video/3gpp", webm: "video/webm" };
+
+/**
+ * Uploads one file — a photo or a video clip — as multipart form data, with
+ * any plain `fields` (a caption, a title) in the same request, so a slide or a
+ * video is created in one step rather than created empty and then filled.
+ */
+export async function uploadFile<T>(
+  path: string,
+  field: string,
+  uri: string,
+  { method = "PATCH", fields = {} }: { method?: "PATCH" | "POST"; fields?: Record<string, string> } = {},
+): Promise<T> {
   const name = uri.split("/").pop()?.split("?")[0] || "photo.jpg";
   const ext = name.includes(".") ? name.split(".").pop()!.toLowerCase() : "jpg";
-  const mimeType = `image/${ext === "jpg" ? "jpeg" : ext}`;
+  const mimeType = VIDEO_TYPES[ext] ?? `image/${ext === "jpg" ? "jpeg" : ext}`;
 
   if (Platform.OS === "web") {
     const form = new FormData();
@@ -268,6 +284,7 @@ export async function uploadImage<T>(
     // A blob URL carries no file name; the server validates images partly by it.
     const blobName = name.includes(".") ? name : `photo.${(blob.type.split("/")[1] || "jpeg").replace("jpeg", "jpg")}`;
     form.append(field, blob, blobName);
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
     return request<T>(path, { method, form });
   }
 
@@ -280,13 +297,14 @@ export async function uploadImage<T>(
       uploadType: FileSystem.FileSystemUploadType.MULTIPART,
       fieldName: field,
       mimeType,
+      parameters: fields,
       headers: {
         Accept: "application/json",
         ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
       },
     });
   } catch {
-    throw new ApiError(0, "Could not upload the photo. Check your connection and try again.");
+    throw new ApiError(0, `Could not upload the ${mimeType.startsWith("video/") ? "video" : "photo"}. Check your connection and try again.`);
   }
 
   let parsed: unknown = result.body;

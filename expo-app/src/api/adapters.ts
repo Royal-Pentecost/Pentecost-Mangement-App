@@ -202,6 +202,7 @@ export function toAttendanceLog(r: ApiAttendanceRecord, serviceName: string): At
  */
 export function toLeaderOffice(e: ApiElder): LeaderOffice {
   const title = (e.title ?? "").toLowerCase();
+  if (title.includes("pastor")) return "Pastor";
   if (title.includes("deaconess")) return "Deaconess";
   if (title.includes("deacon")) return "Deacon";
   return "Elder";
@@ -288,6 +289,7 @@ const NOTIFICATION_KIND: Record<string, AppNotification["kind"]> = {
   system: "admin",
   daily_verse: "verse",
   birthday: "birthday",
+  video: "video",
 };
 
 export function toNotification(n: ApiNotification, readIds: Set<string>): AppNotification {

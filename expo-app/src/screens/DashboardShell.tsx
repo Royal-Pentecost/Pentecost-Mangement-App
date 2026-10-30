@@ -36,6 +36,7 @@ import MyDashboard from "./MyDashboard";
 import AdminHub from "./AdminHub";
 import SuperAdminHub from "./SuperAdminHub";
 import NotificationsScreen from "./NotificationsScreen";
+import VideosScreen from "./VideosScreen";
 import ManualAttendanceScreen from "./ManualAttendanceScreen";
 import PublishScreen from "./PublishScreen";
 import SettingsTab from "./SettingsTab";
@@ -62,6 +63,7 @@ const EYEBROW: Record<SubScreen, string> = {
   settingsDetail: "Settings",
   manualAttendance: "Admin Hub",
   publish: "Admin Hub",
+  videos: "Watch",
 };
 
 
@@ -150,6 +152,7 @@ export default function DashboardShell(props: {
   onOpenManualAttendance: () => void;
   onOpenPublish: () => void;
   onOpenNotifications: () => void;
+  onOpenVideos: () => void;
   sessionUser: SessionUser;
   onChangePhoto: (uri: string) => void;
   photoStatus: { state: "uploading" | "done" | "failed"; message: string } | null;
@@ -199,6 +202,8 @@ export default function DashboardShell(props: {
                   ? "Super Admin Control"
                   : subScreen === "notifications"
                     ? "Notifications"
+                  : subScreen === "videos"
+                    ? "Videos"
                   : subScreen === "manualAttendance"
                     ? "Manual Attendance"
                   : subScreen === "publish"
@@ -311,6 +316,7 @@ export default function DashboardShell(props: {
             elders={elders}
             onOpenElders={props.onOpenElders}
             onOpenMembers={props.onOpenDayBorn}
+            onOpenVideos={props.onOpenVideos}
             loginRole={loginRole}
             user={props.sessionUser}
             bottomInset={contentBottomInset}
@@ -334,6 +340,8 @@ export default function DashboardShell(props: {
 
         {subScreen === "notifications" ? <NotificationsScreen bottomInset={contentBottomInset} /> : null}
 
+        {subScreen === "videos" ? <VideosScreen bottomInset={contentBottomInset} /> : null}
+
         {subScreen === "manualAttendance" ? (
           <ManualAttendanceScreen signedBy={props.sessionUser} bottomInset={contentBottomInset} />
         ) : null}
@@ -352,6 +360,7 @@ export default function DashboardShell(props: {
               elders={elders}
               onOpenElders={props.onOpenElders}
               onOpenMembers={props.onOpenDayBorn}
+              onOpenVideos={props.onOpenVideos}
               loginRole={loginRole}
               user={props.sessionUser}
               bottomInset={contentBottomInset}
@@ -364,6 +373,7 @@ export default function DashboardShell(props: {
               loginRole={loginRole}
               onOpenElders={props.onOpenElders}
               onOpenMembers={props.onOpenMembers}
+              onOpenVideos={props.onOpenVideos}
               onOpenMyDashboard={props.onOpenMyDashboard}
               sessionStartTime={props.sessionStartTime}
               attendanceError={props.attendanceError}

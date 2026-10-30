@@ -1,4 +1,4 @@
-import { listAll, request, uploadImage } from "./client";
+import { listAll, request, uploadFile, uploadImage } from "./client";
 
 /** As the server stores it; the register's "Status" column. */
 export type MaritalStatus = "single" | "married" | "widowed" | "divorced";
@@ -9,6 +9,8 @@ import {
   ApiAttendanceSession,
   ApiBibleStudyWeek,
   ApiDailyVerse,
+  ApiSliderImage,
+  ApiVideo,
   ApiDayBornGroup,
   ApiElder,
   ApiEvent,
@@ -282,9 +284,9 @@ export const fetchRecordsOn = (date: string) =>
  * attendance from the app.
  */
 export type MarkAttendanceInput =
-  | { method: "gps"; session: string; lat: number; lng: number; is_first_timer?: boolean }
+  | { method: "gps"; session: string; lat: number; lng: number; accuracy?: number; is_first_timer?: boolean }
   // Manual marks carry the *admin's* position: they must be at the church too.
-  | { method: "manual"; session: string; member: string; note?: string; is_first_timer?: boolean; lat: number; lng: number };
+  | { method: "manual"; session: string; member: string; note?: string; is_first_timer?: boolean; lat: number; lng: number; accuracy?: number };
 
 export function markAttendance(input: MarkAttendanceInput) {
   // The server names write-side foreign keys with an `_id` suffix and returns
@@ -298,6 +300,8 @@ export function markAttendance(input: MarkAttendanceInput) {
           // fail its decimal validation.
           lat: input.lat.toFixed(6),
           lng: input.lng.toFixed(6),
+          // How sure the phone is, so an indoor reading near the fence counts.
+          accuracy: input.accuracy != null ? Math.round(input.accuracy) : undefined,
           is_first_timer: input.is_first_timer,
         }
       : {
@@ -308,6 +312,7 @@ export function markAttendance(input: MarkAttendanceInput) {
           is_first_timer: input.is_first_timer,
           lat: input.lat.toFixed(6),
           lng: input.lng.toFixed(6),
+          accuracy: input.accuracy != null ? Math.round(input.accuracy) : undefined,
         };
   return request<ApiAttendanceRecord>("/api/v1/attendance/records/", { method: "POST", body });
 }
@@ -460,3 +465,36 @@ export const registerPushDevice = (token: string, platform: "android" | "ios") =
 /** Stops pushes to this phone — sent on sign-out, while the session still exists. */
 export const removePushDevice = (token: string) =>
   request("/api/v1/core/push-devices/remove/", { method: "POST", body: { token } });
+
+// ── Dashboard slider ─────────────────────────────────────────────────────────
+
+/** Photos admins have pushed onto the dashboard slider, newest first. */
+export const fetchSliderImages = () => listAll<ApiSliderImage>("/api/v1/content/slider-images/");
+
+/** Pushes a photo onto every member's dashboard slider. Admins only. */
+export const pushSliderImage = (uri: string, caption: string) =>
+  uploadFile<ApiSliderImage>("/api/v1/content/slider-images/", "image", uri, {
+    method: "POST",
+    fields: caption.trim() ? { caption: caption.trim() } : {},
+  });
+
+export const deleteSliderImage = (id: string) =>
+  request<void>(`/api/v1/content/slider-images/${encodeURIComponent(id)}/`, { method: "DELETE" });
+
+// ── Videos ───────────────────────────────────────────────────────────────────
+
+export const fetchVideos = () => listAll<ApiVideo>("/api/v1/content/videos/");
+
+/** Publishes a YouTube video by its link. The assembly is notified. */
+export const publishYouTubeVideo = (input: { title: string; description: string; youtube_url: string }) =>
+  request<ApiVideo>("/api/v1/content/videos/", { method: "POST", body: input });
+
+/** Uploads a short clip (40 MB at most) from the phone. The assembly is notified. */
+export const uploadVideoClip = (input: { title: string; description: string; uri: string }) =>
+  uploadFile<ApiVideo>("/api/v1/content/videos/", "video_file", input.uri, {
+    method: "POST",
+    fields: { title: input.title, ...(input.description ? { description: input.description } : {}) },
+  });
+
+export const deleteVideo = (id: string) =>
+  request<void>(`/api/v1/content/videos/${encodeURIComponent(id)}/`, { method: "DELETE" });

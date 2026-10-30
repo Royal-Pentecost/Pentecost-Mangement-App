@@ -26,8 +26,11 @@ import { Avatar, Btn, Card, Txt, useKeyboardHeight } from "../ui";
 import { usePullToRefresh } from "../refresh";
 import { describeError } from "../session";
 
-/** The offices the church gives. "Presiding Elder" is stored as the presiding office. */
-const LEADERSHIP_TITLES = ["Presiding Elder", "Elder", "Deacon", "Deaconess"] as const;
+/**
+ * The offices the church gives. "Pastor" leads the district (the four
+ * assemblies); "Presiding Elder" is stored as the presiding office.
+ */
+const LEADERSHIP_TITLES = ["Pastor", "Presiding Elder", "Elder", "Deacon", "Deaconess"] as const;
 type LeadershipTitle = (typeof LEADERSHIP_TITLES)[number];
 
 const BOUNDARIES = ["Royal Assembly", "SMT", "Upper Room", "Grace Temple", "Ayigya District", "Ayigya North"];

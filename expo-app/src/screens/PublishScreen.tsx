@@ -23,15 +23,19 @@ import {
 } from "../icons";
 import { Btn, Card, SectionHeading, TintTile, Txt, shadow, tintFg, tintText } from "../ui";
 import { CoverPicker, Field, SubmitButton } from "../components/AdminForm";
+import SliderPublisher from "../components/SliderPublisher";
+import VideoPublisher from "../components/VideoPublisher";
 import { usePullToRefresh } from "../refresh";
 
-type Section = "schedule" | "events" | "study" | "verse";
+type Section = "schedule" | "events" | "study" | "verse" | "slider" | "videos";
 
 const SECTIONS: { id: Section; label: string; tint: TintName }[] = [
   { id: "schedule", label: "Schedule", tint: "blue" },
   { id: "events", label: "Events", tint: "amber" },
   { id: "study", label: "Bible Study", tint: "violet" },
   { id: "verse", label: "Daily Verse", tint: "green" },
+  { id: "slider", label: "Slider", tint: "blue" },
+  { id: "videos", label: "Videos", tint: "blue" },
 ];
 
 /** One language column of the study form, before it becomes a `StudyText`. */
@@ -627,6 +631,10 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
           </View>
         </>
       ) : null}
+
+      {section === "slider" ? <SliderPublisher /> : null}
+
+      {section === "videos" ? <VideoPublisher /> : null}
 
       {section === "verse" ? (
         <>

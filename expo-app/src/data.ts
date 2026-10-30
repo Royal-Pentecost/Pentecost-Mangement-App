@@ -22,7 +22,9 @@ export type SubScreen =
   | "notifications"
   | "settingsDetail"
   | "manualAttendance"
-  | "publish";
+  | "publish"
+  /** Sermons and clips the assembly has published. */
+  | "videos";
 /** One page in the navigation trail — the tab you were on and the screen above it. */
 export interface NavEntry {
   tab: MainTab;
@@ -33,7 +35,8 @@ export type DayBorn = "Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday"
 export type AdminTier = "Super Admin" | "District Admin" | "Assembly Admin";
 
 /** The office a church leader holds — what the directory filters by. */
-export type LeaderOffice = "Elder" | "Deacon" | "Deaconess";
+/** "Pastor" leads the district — all four assemblies — and ranks above every other office. */
+export type LeaderOffice = "Pastor" | "Elder" | "Deacon" | "Deaconess";
 
 export interface Elder {
   id: string;
@@ -940,7 +943,7 @@ export interface AppNotification {
   title: string;
   body: string;
   time: string;
-  kind: "attendance" | "event" | "study" | "verse" | "admin" | "birthday";
+  kind: "attendance" | "event" | "study" | "verse" | "admin" | "birthday" | "video";
   unread: boolean;
 }
 
@@ -1327,6 +1330,7 @@ export const assemblyFilters = ["All", "SMT", "Royal Assembly", "Upper Room", "G
 /** Church-leader directory filters — the offices, plus an "All" catch-all. */
 export const leaderFilters: { label: string; office: LeaderOffice | "All" }[] = [
   { label: "All", office: "All" },
+  { label: "Pastor", office: "Pastor" },
   { label: "Elders", office: "Elder" },
   { label: "Deacons", office: "Deacon" },
   { label: "Deaconesses", office: "Deaconess" },

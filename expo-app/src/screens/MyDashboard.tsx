@@ -43,6 +43,7 @@ import {
   WhatsappIcon,
   PhoneIcon,
   PinIcon,
+  PlayIcon,
 } from "../icons";
 import { Avatar, Btn, Card, ProgressBar, SectionHeading, StatusDot, TintTile, Txt, shadow, tintFg } from "../ui";
 import { Collapsible, FadeIn, Flicker, PopIn, PoppingText, useCountUp } from "../motion";
@@ -521,6 +522,7 @@ export default function MyDashboard({
   elders,
   onOpenElders,
   onOpenMembers,
+  onOpenVideos,
   loginRole,
   user,
   bottomInset,
@@ -534,6 +536,7 @@ export default function MyDashboard({
   elders: Elder[];
   onOpenElders: () => void;
   onOpenMembers: () => void;
+  onOpenVideos: () => void;
   loginRole: LoginRole;
   user: SessionUser;
   bottomInset: number;
@@ -542,7 +545,7 @@ export default function MyDashboard({
   const pullToRefresh = usePullToRefresh();
   const { c, isDark } = useTheme();
   // Live content — whatever an admin has published in the Admin Hub.
-  const { schedule: weeklySchedule, events, studies: bibleStudies, language, dailyVerse } = useContent();
+  const { schedule: weeklySchedule, events, studies: bibleStudies, language, dailyVerse, videos } = useContent();
   // Which study the app is on — the pamphlet week containing today.
   const thisWeek = studyForWeek(bibleStudies);
   const [reading, setReading] = useState<BibleStudy | null>(null);
@@ -1064,6 +1067,30 @@ export default function MyDashboard({
               ))}
             </View>
           </Card>
+        </>
+      ) : null}
+
+      {/* Videos: the newest one, and the way to all of them */}
+      {videos.length > 0 ? (
+        <>
+          <SectionHeading label="Videos" />
+          <Btn onPress={onOpenVideos} accessibilityLabel={`Watch ${videos[0].title}`}>
+            <Card style={{ padding: 12, flexDirection: "row", alignItems: "center", gap: 12 }}>
+              {videos[0].youtube_id ? (
+                <Image source={{ uri: `https://img.youtube.com/vi/${videos[0].youtube_id}/mqdefault.jpg` }} style={{ width: 96, height: 54, borderRadius: RADIUS.sm }} resizeMode="cover" />
+              ) : (
+                <View style={{ width: 96, height: 54, borderRadius: RADIUS.sm, backgroundColor: "#0D1838", alignItems: "center", justifyContent: "center" }}>
+                  <PlayIcon size={20} color="#fff" />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Txt variant="displayBold" numberOfLines={2} style={{ fontSize: 14, color: c.foreground }}>{videos[0].title}</Txt>
+                <Txt variant="bodyMedium" style={{ fontSize: 12, marginTop: 3, color: c.primary }}>
+                  {videos.length > 1 ? `Watch · ${videos.length} videos` : "Watch"}
+                </Txt>
+              </View>
+            </Card>
+          </Btn>
         </>
       ) : null}
 

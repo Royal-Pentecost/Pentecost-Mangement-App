@@ -363,3 +363,23 @@ export interface ApiDailyVerse {
   created_at: string;
   updated_at: string;
 }
+
+/** A photo an admin pushed onto the dashboard slider. */
+export interface ApiSliderImage {
+  id: string;
+  image: string;
+  caption: string;
+  created_at: string;
+}
+
+/** A video for the assembly: a YouTube link (`youtube_id` set) or an uploaded clip (`video_file` set). */
+export interface ApiVideo {
+  id: string;
+  title: string;
+  description: string;
+  youtube_url: string;
+  youtube_id: string;
+  video_file: string | null;
+  created_by: ApiMemberMini | null;
+  created_at: string;
+}
