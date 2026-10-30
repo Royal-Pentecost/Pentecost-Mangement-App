@@ -217,9 +217,10 @@ export function CoverPicker({
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
+      // Free crop, starting from the whole photo: a fixed shape left only a small box
+      // to crop with on a tall phone photo. The display fills its frame either way.
       allowsEditing: true,
-      aspect: [16, 10],
-      quality: 0.8,
+      quality: 0.9,
     });
 
     if (!result.canceled && result.assets?.[0]?.uri) onChange(result.assets[0].uri);

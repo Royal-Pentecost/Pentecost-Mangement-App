@@ -329,7 +329,6 @@ export default function HomeTab({
         {(
           [
             { label: "My Dashboard", sub: greeting, tint: "blue" as TintName, Icon: HomeIcon, fn: onOpenMyDashboard },
-            { label: "Videos", sub: videos.length ? `${videos.length} published` : "Sermons and clips", tint: "blue" as TintName, Icon: PlayIcon, fn: onOpenVideos },
             ...(canViewMembers(loginRole)
               ? [
                   {

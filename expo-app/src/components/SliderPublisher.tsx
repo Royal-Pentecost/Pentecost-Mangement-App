@@ -8,12 +8,8 @@ import { CameraIcon, TrashIcon, UploadIcon } from "../icons";
 import { Btn, Card, SectionHeading, Txt } from "../ui";
 import { Field, SubmitButton } from "./AdminForm";
 
-/**
- * The slider card is about 5:3 on a phone. Cropping to exactly that shape, at
- * full quality, means the admin sees in the preview exactly what members will
- * see — nothing important gets cut off later by the card.
- */
-const SLIDE_ASPECT: [number, number] = [5, 3];
+/** The slider card's shape (3:2) — the preview shows the photo exactly as the card will. */
+const SLIDE_ASPECT: [number, number] = [3, 2];
 
 /**
  * Pushes a photograph onto every member's dashboard slider — and only there.
@@ -31,8 +27,9 @@ export default function SliderPublisher() {
   const pick = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
+      // Free crop, starting from the whole photo: a fixed shape left only a small box
+      // to crop with on a tall phone photo. The display fills its frame either way.
       allowsEditing: true,
-      aspect: SLIDE_ASPECT,
       // Full quality: this is the largest image in the app.
       quality: 1,
     });
@@ -66,7 +63,7 @@ export default function SliderPublisher() {
             <View style={{ width: "100%", aspectRatio: SLIDE_ASPECT[0] / SLIDE_ASPECT[1], alignItems: "center", justifyContent: "center", gap: 8 }}>
               <CameraIcon size={28} color={c.mutedForeground} />
               <Txt variant="bodySemi" style={{ fontSize: 13, color: c.mutedForeground }}>Choose a photo</Txt>
-              <Txt style={{ fontSize: 11.5, color: c.mutedForeground }}>Cropped to the slider's shape, full quality</Txt>
+              <Txt style={{ fontSize: 11.5, color: c.mutedForeground }}>Crop as much as you like, full quality</Txt>
             </View>
           )}
         </Btn>

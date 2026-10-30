@@ -417,6 +417,8 @@ function PhotoCarousel() {
 
   // Cards leave a sliver of the next photo visible.
   const cardWidth = width - SCREEN_PAD * 2 - 28;
+  // 3:2 — taller than the old fixed 190px, so more of each photo shows.
+  const slideHeight = Math.round((cardWidth * 2) / 3);
   const step = cardWidth + CARD_GAP;
 
   useEffect(() => {
@@ -446,8 +448,8 @@ function PhotoCarousel() {
         }}
       >
         {slides.map((photo) => (
-          <View key={photo.id} style={[{ width: cardWidth, height: 190, borderRadius: RADIUS.xl, overflow: "hidden", backgroundColor: "#172554" }, shadow("md")]}>
-            <Image source={photo.source} style={{ width: cardWidth, height: 190 }} resizeMode="cover" />
+          <View key={photo.id} style={[{ width: cardWidth, height: slideHeight, borderRadius: RADIUS.xl, overflow: "hidden", backgroundColor: "#172554" }, shadow("md")]}>
+            <Image source={photo.source} style={{ width: cardWidth, height: slideHeight }} resizeMode="cover" />
             <LinearGradient
               colors={["transparent", "rgba(8,15,40,0.8)"]}
               locations={[0.4, 1]}

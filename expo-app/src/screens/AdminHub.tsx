@@ -379,7 +379,8 @@ export default function AdminHub({
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) return { ok: false, message: "Photo access was declined" };
 
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+      // Free crop from the whole photo, not a small fixed square.
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, quality: 0.9 });
       if (result.canceled || !result.assets?.[0]) return { ok: false, message: "No photo chosen" };
 
       return { ok: true, message: `Photo attached (${result.assets[0].fileName ?? "image"}) \u2014 assign it to a member record to save` };
