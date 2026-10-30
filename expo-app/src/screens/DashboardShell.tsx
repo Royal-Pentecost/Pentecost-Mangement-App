@@ -18,7 +18,7 @@ import {
   settingsPages,
   visibleMembers,
 } from "../data";
-import { ArrowLeftIcon, BellIcon, CrownIcon, HomeIcon, MapPinIcon, MoonIcon, SettingsIcon, ShieldIcon, SunIcon, TrophyIcon } from "../icons";
+import { ArrowLeftIcon, BellIcon, CrownIcon, HomeIcon, MapPinIcon, MoonIcon, PlayIcon, SettingsIcon, ShieldIcon, SunIcon, TrophyIcon } from "../icons";
 import { Btn, Txt } from "../ui";
 import { EASE_OUT, SwapFade } from "../motion";
 import { HeaderBlock, HeaderButton, HeaderTitle } from "../components/HeaderBlock";
@@ -46,6 +46,8 @@ const TABS: { id: MainTab; label: string; Icon: React.ComponentType<{ size?: num
   { id: "home", label: "Home", Icon: HomeIcon },
   { id: "attendance", label: "Attendance", Icon: MapPinIcon },
   { id: "leaderboard", label: "Leaderboard", Icon: TrophyIcon },
+  // Its own tab so every member can reach it in one tap, published or not.
+  { id: "videos", label: "Videos", Icon: PlayIcon },
   { id: "settings", label: "Settings", Icon: SettingsIcon },
 ];
 
@@ -210,6 +212,8 @@ export default function DashboardShell(props: {
                     ? "Publish Content"
                   : subScreen === "settingsDetail"
                     ? settingsPages[props.settingsTopic].title
+                  : mainTab === "videos"
+                    ? "Videos"
                   : mainTab === "settings"
                     ? "Settings"
                   : isMember && mainTab === "home"
@@ -219,6 +223,8 @@ export default function DashboardShell(props: {
   const eyebrow =
     subScreen === "none" && mainTab === "settings"
       ? "Account"
+      : subScreen === "none" && mainTab === "videos"
+        ? "Watch"
       : subScreen === "none" && isMember && mainTab === "home"
         ? assembly.name
         : EYEBROW[subScreen];
@@ -400,6 +406,8 @@ export default function DashboardShell(props: {
         {subScreen === "none" && mainTab === "leaderboard" ? (
           <LeaderboardTab user={props.sessionUser} bottomInset={contentBottomInset} />
         ) : null}
+
+        {subScreen === "none" && mainTab === "videos" ? <VideosScreen bottomInset={contentBottomInset} /> : null}
 
         {subScreen === "none" && mainTab === "settings" ? (
           <SettingsTab

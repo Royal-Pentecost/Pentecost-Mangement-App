@@ -2,7 +2,7 @@
 
 export type AppPhase = "login" | "otp" | "welcome" | "app";
 export type LoginRole = "member" | "admin" | "superAdmin";
-export type MainTab = "home" | "attendance" | "leaderboard" | "settings";
+export type MainTab = "home" | "attendance" | "leaderboard" | "videos" | "settings";
 export type AttendanceScenario =
   | "inside-active"
   | "outside-active"

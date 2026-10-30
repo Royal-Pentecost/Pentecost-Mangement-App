@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Image, ScrollView, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { BackHandler, Image, ScrollView, View } from "react-native";
 
 import { RADIUS, TintName, useTheme } from "../theme";
 import {
@@ -14,8 +14,11 @@ import { parseEventDate, useContent } from "../store";
 import {
   BookIcon,
   CalendarIcon,
+  CameraIcon,
+  ChevronRightIcon,
   CheckCircleIcon,
   ClockIcon,
+  PlayIcon,
   PlusIcon,
   TrashIcon,
   UploadIcon,
@@ -29,13 +32,19 @@ import { usePullToRefresh } from "../refresh";
 
 type Section = "schedule" | "events" | "study" | "verse" | "slider" | "videos";
 
-const SECTIONS: { id: Section; label: string; tint: TintName }[] = [
-  { id: "schedule", label: "Schedule", tint: "blue" },
-  { id: "events", label: "Events", tint: "amber" },
-  { id: "study", label: "Bible Study", tint: "violet" },
-  { id: "verse", label: "Daily Verse", tint: "green" },
-  { id: "slider", label: "Slider", tint: "blue" },
-  { id: "videos", label: "Videos", tint: "blue" },
+const SECTIONS: {
+  id: Section;
+  label: string;
+  desc: string;
+  tint: TintName;
+  Icon: React.ComponentType<{ size?: number; color?: string }>;
+}[] = [
+  { id: "schedule", label: "Weekly Schedule", desc: "Services and their times", tint: "blue", Icon: ClockIcon },
+  { id: "events", label: "Events", desc: "Upcoming programmes", tint: "amber", Icon: CalendarIcon },
+  { id: "study", label: "Bible Study", desc: "This week's guide", tint: "violet", Icon: BookIcon },
+  { id: "verse", label: "Daily Verse", desc: "Today's verse, English and Twi", tint: "green", Icon: BookIcon },
+  { id: "slider", label: "Slider", desc: "Photos on the dashboard", tint: "blue", Icon: CameraIcon },
+  { id: "videos", label: "Videos", desc: "YouTube links and clips", tint: "blue", Icon: PlayIcon },
 ];
 
 /** One language column of the study form, before it becomes a `StudyText`. */
@@ -186,11 +195,22 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
     removeDailyVerse,
     publishError,
     clearPublishError,
+    sliderImages,
+    videos,
   } = useContent();
   const [publishing, setPublishing] = useState(false);
   const [studyError, setStudyError] = useState<string | null>(null);
 
-  const [section, setSection] = useState<Section>("schedule");
+  // No section open until a card is tapped: Publish opens on the cards.
+  const [section, setSection] = useState<Section | null>(null);
+  useEffect(() => {
+    if (!section) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setSection(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [section]);
   const [saved, setSaved] = useState<string | null>(null);
 
   // Weekly schedule form
@@ -336,21 +356,69 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* What this does */}
-      <Card style={{ padding: 14, flexDirection: "row", gap: 13 }}>
-        <TintTile tint="green" size={46}>
-          <UploadIcon size={20} color={tintFg("green", isDark)} />
-        </TintTile>
-        <View style={{ flex: 1 }}>
-          <Txt variant="displayBold" style={{ fontSize: 15.5, color: c.foreground }}>
-            Publish to the congregation
+      {section === null ? (
+        <>
+          {/* What this does */}
+          <Card style={{ padding: 14, flexDirection: "row", gap: 13 }}>
+            <TintTile tint="green" size={46}>
+              <UploadIcon size={20} color={tintFg("green", isDark)} />
+            </TintTile>
+            <View style={{ flex: 1 }}>
+              <Txt variant="displayBold" style={{ fontSize: 15.5, color: c.foreground }}>
+                Publish to the congregation
+              </Txt>
+              <Txt style={{ fontSize: 12.5, lineHeight: 18, marginTop: 3, color: c.mutedForeground }}>
+                Choose what to publish. It appears on every member's phone straight away.
+              </Txt>
+            </View>
+          </Card>
+
+          {/* One card per kind of content, each opening its own page. */}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 16 }}>
+            {SECTIONS.map((s) => {
+              const live =
+                s.id === "schedule" ? schedule.length
+                : s.id === "events" ? events.length
+                : s.id === "study" ? studies.length
+                : s.id === "verse" ? (dailyVerse ? 1 : 0)
+                : s.id === "slider" ? sliderImages.length
+                : videos.length;
+              return (
+                <Btn
+                  key={s.id}
+                  onPress={() => { setSection(s.id); setSaved(null); clearPublishError(); }}
+                  accessibilityLabel={`${s.label}, ${live} published`}
+                  style={{ width: "47.5%", flexGrow: 1 }}
+                >
+                  <Card style={{ padding: 14, minHeight: 132, justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <TintTile tint={s.tint} size={42}>
+                        <s.Icon size={18} color={tintFg(s.tint, isDark)} />
+                      </TintTile>
+                      <ChevronRightIcon size={16} color={c.mutedForeground} />
+                    </View>
+                    <View style={{ marginTop: 12 }}>
+                      <Txt variant="displayBold" style={{ fontSize: 15, color: c.foreground }}>{s.label}</Txt>
+                      <Txt style={{ fontSize: 12, lineHeight: 16, marginTop: 2, color: c.mutedForeground }}>{s.desc}</Txt>
+                      <Txt variant="bodySemi" style={{ fontSize: 12, marginTop: 6, color: c.primary }}>
+                        {live > 0 ? `${live} published` : "Nothing yet"}
+                      </Txt>
+                    </View>
+                  </Card>
+                </Btn>
+              );
+            })}
+          </View>
+        </>
+      ) : (
+        /* Inside a section: the way back to all the cards, and where you are. */
+        <Btn onPress={() => setSection(null)} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4 }}>
+          <Txt variant="bodySemi" style={{ fontSize: 13, color: c.primary }}>‹ All content</Txt>
+          <Txt variant="displayBold" style={{ fontSize: 13, color: c.mutedForeground }}>
+            · {SECTIONS.find((x) => x.id === section)?.label}
           </Txt>
-          <Txt style={{ fontSize: 12.5, lineHeight: 18, marginTop: 3, color: c.mutedForeground }}>
-            Anything you add here appears on every member's dashboard straight away, and is
-            announced in their notifications.
-          </Txt>
-        </View>
-      </Card>
+        </Btn>
+      )}
 
       {saved ? (
         <Card style={{ marginTop: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 11 }}>
@@ -363,53 +431,6 @@ export default function PublishScreen({ bottomInset }: { bottomInset: number }) 
           </Btn>
         </Card>
       ) : null}
-
-      {/* Section switcher */}
-      <View
-        style={{
-          marginTop: 16,
-          padding: 4,
-          borderRadius: RADIUS.lg,
-          backgroundColor: c.muted,
-        }}
-      >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 4 }}
-        >
-          {SECTIONS.map((s) => {
-            const active = section === s.id;
-            return (
-              <Btn
-                key={s.id}
-                onPress={() => setSection(s.id)}
-                scale={1}
-                style={[
-                  {
-                    minWidth: 112,
-                    paddingHorizontal: 14,
-                    paddingVertical: 11,
-                    borderRadius: RADIUS.md,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  },
-                  active ? { backgroundColor: c.card } : null,
-                  active && !isDark ? shadow("sm") : null,
-                ]}
-              >
-                <Txt
-                  variant="bodySemi"
-                  numberOfLines={1}
-                  style={{ fontSize: 12.5, color: active ? c.primary : c.mutedForeground }}
-                >
-                  {s.label}
-                </Txt>
-              </Btn>
-            );
-          })}
-        </ScrollView>
-      </View>
 
       {/* ── Weekly schedule ───────────────────────────────────────────────── */}
       {section === "schedule" ? (
